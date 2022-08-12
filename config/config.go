@@ -1,11 +1,12 @@
 package config
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -22,10 +23,10 @@ const (
 `
 )
 
-func Init() {
+func Init(work_dir string) {
 
 	viper.SetConfigName("config")
-	viper.AddConfigPath(".")
+	viper.AddConfigPath(work_dir)
 
 	if err := viper.ReadInConfig(); err != nil {
 		zap.S().Fatalw("failed to read config", "error", err)

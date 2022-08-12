@@ -26,11 +26,11 @@ const (
 `
 )
 
-func Start() {
+func Start(work_dir string) {
 	var err error
 	fmt.Print(logo)
 
-	config.Init()
+	config.Init(work_dir)
 	logger.Init()
 	db.Init()
 	InitTask()
