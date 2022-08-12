@@ -2,16 +2,17 @@ package bots
 
 import (
 	"fmt"
-	"github.com/iyear/E5SubBot/config"
-	"github.com/iyear/E5SubBot/model"
-	"github.com/iyear/E5SubBot/pkg/microsoft"
-	"github.com/iyear/E5SubBot/service/srv_client"
-	"github.com/iyear/E5SubBot/util"
-	"github.com/tidwall/gjson"
-	"go.uber.org/zap"
-	tb "gopkg.in/tucnak/telebot.v2"
 	"strconv"
 	"strings"
+
+	"github.com/tidwall/gjson"
+	"github.com/zhfreal/E5SubBot/config"
+	"github.com/zhfreal/E5SubBot/model"
+	"github.com/zhfreal/E5SubBot/pkg/microsoft"
+	"github.com/zhfreal/E5SubBot/service/srv_client"
+	"github.com/zhfreal/E5SubBot/util"
+	"go.uber.org/zap"
+	tb "gopkg.in/tucnak/telebot.v2"
 )
 
 func bBind(m *tb.Message) {

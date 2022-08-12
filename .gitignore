@@ -22,3 +22,4 @@ config.yml
 #Logs
 /log
 /.idea
+.vscode

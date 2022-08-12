@@ -2,14 +2,15 @@ package bots
 
 import (
 	"fmt"
-	"github.com/iyear/E5SubBot/config"
-	"github.com/iyear/E5SubBot/db"
-	"github.com/iyear/E5SubBot/logger"
+	"net/http"
+	"time"
+
+	"github.com/zhfreal/E5SubBot/config"
+	"github.com/zhfreal/E5SubBot/db"
+	"github.com/zhfreal/E5SubBot/logger"
 	"go.uber.org/zap"
 	"golang.org/x/net/proxy"
 	tb "gopkg.in/tucnak/telebot.v2"
-	"net/http"
-	"time"
 )
 
 var bot *tb.Bot

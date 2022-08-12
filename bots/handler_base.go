@@ -3,13 +3,14 @@ package bots
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/iyear/E5SubBot/config"
-	"github.com/iyear/E5SubBot/service/srv_client"
-	"go.uber.org/zap"
-	tb "gopkg.in/tucnak/telebot.v2"
 	"io/ioutil"
 	"os"
 	"strconv"
+
+	"github.com/zhfreal/E5SubBot/config"
+	"github.com/zhfreal/E5SubBot/service/srv_client"
+	"go.uber.org/zap"
+	tb "gopkg.in/tucnak/telebot.v2"
 )
 
 func bStart(m *tb.Message) {

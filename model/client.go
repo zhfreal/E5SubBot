@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/iyear/E5SubBot/config"
+	"github.com/zhfreal/E5SubBot/config"
 )
 
 type Client struct {

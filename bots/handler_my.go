@@ -2,11 +2,12 @@ package bots
 
 import (
 	"fmt"
-	"github.com/iyear/E5SubBot/config"
-	"github.com/iyear/E5SubBot/service/srv_client"
-	tb "gopkg.in/tucnak/telebot.v2"
 	"strconv"
 	"time"
+
+	"github.com/zhfreal/E5SubBot/config"
+	"github.com/zhfreal/E5SubBot/service/srv_client"
+	tb "gopkg.in/tucnak/telebot.v2"
 )
 
 var (

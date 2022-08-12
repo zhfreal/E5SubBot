@@ -2,13 +2,14 @@ package db
 
 import (
 	"fmt"
-	"github.com/iyear/E5SubBot/config"
-	"github.com/iyear/E5SubBot/model"
-	"github.com/iyear/sqlite"
+	"time"
+
+	"github.com/zhfreal/E5SubBot/config"
+	"github.com/zhfreal/E5SubBot/model"
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"time"
 )
 
 var DB *gorm.DB
