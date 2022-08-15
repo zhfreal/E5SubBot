@@ -53,7 +53,7 @@ func Init(work_dir string) {
 
 	switch DB {
 	case "mysql":
-		Mysql = mysqlConfig{
+		Mysql = &mysqlConfig{
 			Host:     viper.GetString("mysql.host"),
 			Port:     viper.GetInt("mysql.port"),
 			User:     viper.GetString("mysql.user"),
@@ -65,10 +65,9 @@ func Init(work_dir string) {
 		sqlite_db_org := viper.GetString("sqlite.db")
 		sqlite_db_new := filepath.Join(work_dir, sqlite_db_org)
 		if _, err := os.Stat(sqlite_db_org); err == nil {
-			// path/to/whatever exists
 			sqlite_db_new = sqlite_db_org
 		}
-		Sqlite = sqliteConfig{
+		Sqlite = &sqliteConfig{
 			DB: sqlite_db_new,
 		}
 	}

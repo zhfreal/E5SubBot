@@ -11,8 +11,8 @@ var (
 	Admins        []int64
 	DB            string
 	Table         string
-	Mysql         mysqlConfig
-	Sqlite        sqliteConfig
+	Mysql         *mysqlConfig
+	Sqlite        *sqliteConfig
 )
 
 type sqliteConfig struct {
