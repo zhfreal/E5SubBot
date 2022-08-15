@@ -51,7 +51,7 @@ func main() {
 			}
 		}
 		if !t_config_yaml_found {
-			fmt.Printf("Neigther \"config.yml\" nor \"config.yaml\" is in Config directory \"%v\"!\n", work_dir)
+			fmt.Printf("Neigther \"config.yml\" nor \"config.yaml\" is in config directory \"%v\"!\n", work_dir)
 			os.Exit(1)
 		}
 	}
