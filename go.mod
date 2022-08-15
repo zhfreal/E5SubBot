@@ -9,7 +9,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.12.0
 	github.com/tidwall/gjson v1.14.2
-	github.com/zhfreal/sqlite v0.0.0-20220815031039-8c0170fa12df
+	github.com/zhfreal/sqlite v0.2.0
 	go.uber.org/zap v1.22.0
 	golang.org/x/net v0.0.0-20220812174116-3211cb980234
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

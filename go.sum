@@ -234,8 +234,8 @@ github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9de
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
-github.com/zhfreal/sqlite v0.0.0-20220815031039-8c0170fa12df h1:uNBspCL+YPuz2/aOQRa3eFSsyCDkRdcTcvFdF5kCpOo=
-github.com/zhfreal/sqlite v0.0.0-20220815031039-8c0170fa12df/go.mod h1:+F38eGKC6aJqBqPRAYmQ9Tk460EcT8z9V36KLYvOtoM=
+github.com/zhfreal/sqlite v0.2.0 h1:aBM4xyl/Yu11hItAG1Qd/FIpi4srEHpP3OmlD5lkbQU=
+github.com/zhfreal/sqlite v0.2.0/go.mod h1:+F38eGKC6aJqBqPRAYmQ9Tk460EcT8z9V36KLYvOtoM=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.opencensus.io v0.22.0/go.mod h1:+kGneAE2xo2IficOXnaByMWTGM9T73dGwxeWcUqIpI8=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=
