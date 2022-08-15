@@ -55,6 +55,8 @@ func SignTask() {
 	errClients := Sign(clients)
 
 	for _, errClient := range errClients {
+		// reset isSent
+		isSent[errClient.TgId] = false
 		if errClient.Err != nil {
 			opErrorSign(errClient)
 			continue
@@ -64,8 +66,6 @@ func SignTask() {
 		if err := srv_client.Update(errClient.Client); err != nil {
 			zap.S().Errorw("failed to update")
 		}
-		// reset isSent
-		isSent[errClient.TgId] = false
 	}
 
 	timeSpending := time.Since(start).Seconds()
@@ -96,7 +96,7 @@ func adminSummary(errClients []*ErrClient, timeSpending float64) {
 		),
 			tb.ModeMarkdown,
 		)
-		isSent[admin] = false
+		isSent[admin] = true
 	}
 }
 func usersSummary(errClients []*ErrClient) {
