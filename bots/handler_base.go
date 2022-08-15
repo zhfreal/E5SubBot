@@ -63,7 +63,7 @@ func bExport(m *tb.Message) {
 	}
 	bot.Send(m.Chat, exportFile)
 
-	if exportFile.InCloud() != true || os.Remove(fileName) != nil {
+	if !exportFile.InCloud() || os.Remove(fileName) != nil {
 		zap.S().Errorw("failed to export files")
 	}
 }

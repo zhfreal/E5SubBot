@@ -1,7 +1,9 @@
 package bots
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -57,7 +59,9 @@ func Start(work_dir string) {
 				"error", err, "proxy", config.Socks5)
 		}
 		transport := &http.Transport{}
-		transport.Dial = dialer.Dial
+		transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+			return dialer.Dial(network, address)
+		}
 		setting.Client = &http.Client{Transport: transport}
 	}
 

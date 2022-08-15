@@ -22,12 +22,14 @@ type ErrClient struct {
 var (
 	errorTimes  map[int]int
 	signErr     map[int64]int
+	isSent      map[int64]bool
 	unbindUsers []int64
 	msgSender   *Sender
 )
 
 func InitTask() {
 	errorTimes = make(map[int]int)
+	isSent = make(map[int64]bool)
 	msgSender = NewSender()
 
 	c := cron.New()
@@ -38,6 +40,7 @@ func SignTask() {
 	msgSender.Init(config.MaxGoroutines)
 
 	signErr = make(map[int64]int)
+	isSent = make(map[int64]bool)
 	unbindUsers = nil
 
 	clients := srv_client.GetAllClients()
@@ -61,12 +64,13 @@ func SignTask() {
 		if err := srv_client.Update(errClient.Client); err != nil {
 			zap.S().Errorw("failed to update")
 		}
+		// reset isSent
+		isSent[errClient.TgId] = false
 	}
 
 	timeSpending := time.Since(start).Seconds()
-	usersSummary(errClients)
 	adminSummary(errClients, timeSpending)
-
+	usersSummary(errClients)
 	msgSender.Stop()
 }
 
@@ -92,12 +96,10 @@ func adminSummary(errClients []*ErrClient, timeSpending float64) {
 		),
 			tb.ModeMarkdown,
 		)
+		isSent[admin] = false
 	}
 }
 func usersSummary(errClients []*ErrClient) {
-
-	var isSent map[int64]bool
-	isSent = make(map[int64]bool)
 
 	for _, errClient := range errClients {
 		errClient := errClient
