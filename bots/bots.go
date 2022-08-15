@@ -33,7 +33,7 @@ func Start(work_dir string) {
 	fmt.Print(logo)
 
 	config.Init(work_dir)
-	logger.Init()
+	logger.Init(work_dir)
 	db.Init()
 	InitTask()
 
