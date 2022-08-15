@@ -45,7 +45,7 @@ func main() {
 	} else {
 		t_config_yaml_found := false
 		for _, t_file := range t_dir_list {
-			if t_file.Name() == "config.yml" {
+			if t_file.Name() == "config.yml" || t_file.Name() == "config.yaml" {
 				t_config_yaml_found = true
 				break
 			}
