@@ -8,10 +8,33 @@ import (
 	"github.com/zhfreal/E5SubBot/bots"
 )
 
+var (
+	runable = "E5SubBot"
+	version = "dev"
+)
+
+func print_version() {
+	fmt.Printf("%v %v\n", runable, version)
+}
+
 func main() {
 	var work_dir string
-	flag.StringVarP(&work_dir, "conf-dir", "d", "", "Write result to csv file, disabled by default.")
+	var show_version bool
+	var help = "\n" + runable + " " + version + `
+    Usage: E5SubBot [options]
+    options:
+        -d|--conf-dir  work directory for E5SubBot.
+        -v|--version   show version.
+        -h|--help      show help.
+    `
+	flag.StringVarP(&work_dir, "conf-dir", "d", ".", "work directory for E5SubBot.")
+	flag.BoolVarP(&show_version, "version", "v", false, "Show version.")
+	flag.Usage = func() { fmt.Print(help) }
 	flag.Parse()
+	if show_version {
+		print_version()
+		os.Exit(0)
+	}
 	if len(work_dir) == 0 {
 		fmt.Println("No config directory, please use \"-d|--conf-dir\"")
 		os.Exit(1)

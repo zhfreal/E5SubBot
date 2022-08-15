@@ -6,9 +6,9 @@ import (
 
 	"github.com/zhfreal/E5SubBot/config"
 	"github.com/zhfreal/E5SubBot/model"
+	"github.com/zhfreal/sqlite"
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 

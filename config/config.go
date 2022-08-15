@@ -1,8 +1,11 @@
 package config
 
 import (
+	"os"
 	"strconv"
 	"strings"
+
+	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
@@ -58,8 +61,15 @@ func Init(work_dir string) {
 			DB:       viper.GetString("mysql.database"),
 		}
 	case "sqlite":
+		// detect sqlite.db db file
+		sqlite_db_org := viper.GetString("sqlite.db")
+		sqlite_db_new := filepath.Join(work_dir, sqlite_db_org)
+		if _, err := os.Stat(sqlite_db_org); err == nil {
+			// path/to/whatever exists
+			sqlite_db_new = sqlite_db_org
+		}
 		Sqlite = sqliteConfig{
-			DB: viper.GetString("sqlite.db"),
+			DB: sqlite_db_new,
 		}
 	}
 
