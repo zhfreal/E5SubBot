@@ -130,26 +130,28 @@ table: users
 #    user: root
 #    password: pwd
 #    database: e5sub
+# ssl_mode is only required when the database requires a SSL connection (e.g. TiDB Cloud)
+#    ssl_mode: PREFERRED
 sqlite:
    db: data.db
 ```
 
 `bindmax`, `notice`, `admin`,`goroutine`, `errlimit` can be hot updated, just update `config.yml` to save.
 
-|  Configuration   | Explanation|Default|
-|  ----  | ----  |----|
-| bot_token  | Change to your own `BotToken` |-|
-| socks5  | `Socks5` proxy,if you do not need ,you should delete it. For example: `127.0.0.1:1080` |-|
-|notice|Announcement. Merged into `/help`|-|
-|admin|The administrator's `tgid`, go to https://t.me/userinfobot to get it, separated by `,`; Administrator permissions: manually call the task, get the total feedback of the task|-|
-|goroutine|Concurrent number, don’t be too big|10|
-|errlimit|The maximum number of errors for a single account, automatically unbind the single account and send a notification when it is full, without limiting the number of errors, change the value to a negative number `(-1)`; all errors will be cleared after the bot restarts|5|
-|cron|API call frequency, using `cron` expression|-|
-|bindmax|Maximum number of bindable|5|
-|db|`mysql` or `sqlite` , Indicates the database type used and sets the corresponding configuration|-|
-|table|Table name (set table to `users` when upgrading the old version; otherwise, the data table cannot be read)|-|
-|mysql|To configure `mysql`, create a database in advance|-|
-|sqlite|`sqlite` configuration|-|
+| Configuration | Explanation                                                                                                                                                                                                                                                                | Default |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| bot_token     | Change to your own `BotToken`                                                                                                                                                                                                                                              | -       |
+| socks5        | `Socks5` proxy,if you do not need ,you should delete it. For example: `127.0.0.1:1080`                                                                                                                                                                                     | -       |
+| notice        | Announcement. Merged into `/help`                                                                                                                                                                                                                                          | -       |
+| admin         | The administrator's `tgid`, go to https://t.me/userinfobot to get it, separated by `,`; Administrator permissions: manually call the task, get the total feedback of the task                                                                                              | -       |
+| goroutine     | Concurrent number, don’t be too big                                                                                                                                                                                                                                        | 10      |
+| errlimit      | The maximum number of errors for a single account, automatically unbind the single account and send a notification when it is full, without limiting the number of errors, change the value to a negative number `(-1)`; all errors will be cleared after the bot restarts | 5       |
+| cron          | API call frequency, using `cron` expression                                                                                                                                                                                                                                | -       |
+| bindmax       | Maximum number of bindable                                                                                                                                                                                                                                                 | 5       |
+| db            | `mysql` or `sqlite` , Indicates the database type used and sets the corresponding configuration                                                                                                                                                                            | -       |
+| table         | Table name (set table to `users` when upgrading the old version; otherwise, the data table cannot be read)                                                                                                                                                                 | -       |
+| mysql         | To configure `mysql`, create a database in advance                                                                                                                                                                                                                         | -       |
+| sqlite        | `sqlite` configuration                                                                                                                                                                                                                                                     | -       |
 
 ### Command
 

@@ -126,26 +126,28 @@ table: users
 #    user: root
 #    password: pwd
 #    database: e5sub
+# ssl_mode仅在数据库需要SSL链接时才需要配置（如连接TiDB Cloud）
+#    ssl_mode: PREFERRED
 sqlite:
    db: data.db
 ```
 
 `bindmax`,`notice`,`admin`,`goroutine`,`errlimit`可热更新，直接更新`config.yml`保存即可
 
-|  配置项   | 说明  |默认值|
-|  ----  | ----  | ---- |
-| bot_token  | 更换为自己的`BotToken` | -|
-| socks5  | `Socks5`代理,不需要删去即可.例如:`127.0.0.1:1080` |-|
-|notice|公告.合并至`/help`|-|
-|admin|管理员`tgid`，前往 https://t.me/userinfobot 获取，用`,`隔开;管理员权限: 手动调用任务，获得任务总反馈|-|
-|goroutine|并发数，不要过大|10|
-|errlimit|单账户最大出错次数，满后自动解绑单账户并发送通知，不限制错误次数将值改为负数`(-1)`即可;bot重启后会清零所有错误次数|5|
-|cron|API调用频率，使用cron表达式|-|
-|bindmax|最大可绑定数|5|
-|db|`mysql` 或 `sqlite` ，表示使用的数据库类型，并设置对应的配置|-|
-|table|数据表名(旧版本升级请设置table为 `users`，否则读不到数据表)|-|
-|mysql|`mysql` 配置，请提前创建数据库|-|
-|sqlite|`sqlite` 配置|-|
+| 配置项    | 说明                                                                                                               | 默认值 |
+| --------- | ------------------------------------------------------------------------------------------------------------------ | ------ |
+| bot_token | 更换为自己的`BotToken`                                                                                             | -      |
+| socks5    | `Socks5`代理,不需要删去即可.例如:`127.0.0.1:1080`                                                                  | -      |
+| notice    | 公告.合并至`/help`                                                                                                 | -      |
+| admin     | 管理员`tgid`，前往 https://t.me/userinfobot 获取，用`,`隔开;管理员权限: 手动调用任务，获得任务总反馈               | -      |
+| goroutine | 并发数，不要过大                                                                                                   | 10     |
+| errlimit  | 单账户最大出错次数，满后自动解绑单账户并发送通知，不限制错误次数将值改为负数`(-1)`即可;bot重启后会清零所有错误次数 | 5      |
+| cron      | API调用频率，使用cron表达式                                                                                        | -      |
+| bindmax   | 最大可绑定数                                                                                                       | 5      |
+| db        | `mysql` 或 `sqlite` ，表示使用的数据库类型，并设置对应的配置                                                       | -      |
+| table     | 数据表名(旧版本升级请设置table为 `users`，否则读不到数据表)                                                        | -      |
+| mysql     | `mysql` 配置，请提前创建数据库                                                                                     | -      |
+| sqlite    | `sqlite` 配置                                                                                                      | -      |
 
 ### 命令
 
