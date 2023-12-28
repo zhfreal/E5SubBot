@@ -69,7 +69,6 @@ func Start(conf_file string, show_token bool, account string) {
 	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/statall", bot.MatchTypeExact, statAllHandler)
 	// init background task
 	// this must be called after bot initialized
-	storage.FindUserConfigByAppIDTgIDMsUsername(1, 358920093, "zhfreal@iesoft.onmicrosoft.com")
 	InitBackgroundTasks()
 	// this is for test only
 	// PerformTasks()
