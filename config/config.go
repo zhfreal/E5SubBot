@@ -1,55 +1,106 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
-	"path/filepath"
-
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
-const (
-	LogBasePath    string = "./log/"
-	WelcomeContent string = "欢迎使用E5SubBot!"
-	HelpContent    string = `
-	命令：
-	/my 查看已绑定账户信息
-	/bind  绑定新账户
-	/unbind 解绑账户
-	/export 导出账户信息(JSON)
-	/help 帮助
-	源码及使用方法：https://github.com/iyear/E5SubBot
-`
-)
+// const (
+//     LogBasePath    string = "./log/"
+// )
 
-func Init(work_dir string) {
-
-	viper.SetConfigName("config")
-	viper.AddConfigPath(work_dir)
-
+func Init(file_path string) {
+	if len(file_path) == 0 {
+		file_path = "./"
+	}
+	info, err := os.Stat(file_path)
+	if err != nil {
+		fmt.Printf("Can't access %v\n", file_path)
+		os.Exit(1)
+	}
+	// check the mode
+	if info.IsDir() {
+		viper.AddConfigPath(file_path)
+		viper.SetConfigName("config")
+	} else {
+		viper.SetConfigFile(file_path)
+	}
+	// read config
 	if err := viper.ReadInConfig(); err != nil {
-		zap.S().Fatalw("failed to read config", "error", err)
+		fmt.Println("failed to read config, ", "error:", err)
+		os.Exit(1)
 	}
 	BotToken = viper.GetString("bot_token")
 	Cron = viper.GetString("cron")
+	CronNotice = viper.GetString("cron_notice")
 	Socks5 = viper.GetString("socks5")
+	// print deprecated warning info
+	if len(Socks5) > 0 {
+		fmt.Println("<Init> WARNING: socks5 is deprecated, use \"Proxy: socks5://127.0.0.1:1080\" or \"Proxy: http://127.0.0.1:8080\" or \"Proxy: https://example.com:8443\" instead")
+	}
+	Proxy = viper.GetString("proxy")
+	if len(Proxy) > 0 {
+		var e error
+		ProxyObj, e = NewProxyType(Proxy)
+		if e != nil {
+			fmt.Println("<Init> WARNING: invalid proxy settings, use \"Proxy: socks5://127.0.0.1:1080\" or \"Proxy: http://127.0.0.1:8080\" or \"Proxy: https://example.com:8443\".")
+		}
+	} else if len(Socks5) > 0 {
+		var e error
+		ProxyObj, e = NewProxyType("socks5://" + Socks5)
+		if e != nil {
+			fmt.Println("<Init> WARNING: invalid socks5 proxy settings, use \"Socks5: 127.0.0.1:1080\", or just \"Proxy: socks5://127.0.0.1:1080\" or \"Proxy: http://127.0.0.1:8080\" or \"Proxy: https://example.com:8443\" instead.")
+		}
+	} else {
+		ProxyObj = &ProxyType{Url: nil, UrlStr: ""}
+	}
 
 	viper.SetDefault("errlimit", 5)
 	viper.SetDefault("bindmax", 5)
 	viper.SetDefault("goroutine", 10)
+	viper.SetDefault("ms.mail.auto-delete.enabled", MailAutoDeleteEnabled)
+	viper.SetDefault("ms.mail.auto-delete.keyword", MailAutoDeleteKeyWord)
+	viper.SetDefault("ms.mail.auto-delete.quantity", MailAutoDeleteQuantity)
+	// logging
+	viper.SetDefault("log.log-into-file", LogIntoFile)
+	viper.SetDefault("log.log-dir", LogDir)
+	viper.SetDefault("log.log-file", LogFile)
+	viper.SetDefault("log.log-level", LogLevel)
+	viper.SetDefault("log.max-size", MaxSize)
+	viper.SetDefault("log.max-backups", MaxBackups)
+	viper.SetDefault("log.max-age", MaxAge)
 
 	BindMaxNum = viper.GetInt("bindmax")
 	MaxErrTimes = viper.GetInt("errlimit")
 	Notice = viper.GetString("notice")
 
+	// read from config.yaml
+	// mail deletion settings
+	// ms.mail.auto-delete.enabled
+	MailAutoDeleteEnabled = viper.GetBool("ms.mail.auto-delete.enabled")
+	// ms.mail.auto-delete.keyword
+	MailAutoDeleteKeyWord = viper.GetString("ms.mail.auto-delete.keyword")
+	// ms.mail.auto-delete.quantity
+	MailAutoDeleteQuantity = viper.GetInt("ms.mail.auto-delete.quantity")
+
+	// logging settings
+	LogIntoFile = viper.GetBool("log.log-into-file")
+	LogDir = viper.GetString("log.log-dir")
+	LogFile = viper.GetString("log.log-file")
+	LogLevel = strings.ToLower(viper.GetString("log.log-level"))
+	MaxSize = viper.GetInt("log.max-size")
+	MaxBackups = viper.GetInt("log.max-backups")
+	MaxAge = viper.GetInt("log.max-age")
+
 	MaxGoroutines = viper.GetInt("goroutine")
 	Admins = getAdmins()
+	AdminSet = NewAdminList(Admins)
 	DB = viper.GetString("db")
-	Table = viper.GetString("table")
 
 	switch DB {
 	case "mysql":
@@ -65,12 +116,8 @@ func Init(work_dir string) {
 	case "sqlite":
 		// detect sqlite.db db file
 		sqlite_db_org := viper.GetString("sqlite.db")
-		sqlite_db_new := filepath.Join(work_dir, sqlite_db_org)
-		if _, err := os.Stat(sqlite_db_org); err == nil {
-			sqlite_db_new = sqlite_db_org
-		}
 		Sqlite = &sqliteConfig{
-			DB: sqlite_db_new,
+			DB: sqlite_db_org,
 		}
 	}
 
@@ -81,8 +128,11 @@ func Init(work_dir string) {
 		MaxErrTimes = viper.GetInt("errlimit")
 		Notice = viper.GetString("notice")
 		Admins = getAdmins()
+		// reload ms.mail.keyword
+		MailAutoDeleteKeyWord = viper.GetString("ms.mail.keyword")
 	})
 }
+
 func getAdmins() []int64 {
 	var result []int64
 	admins := strings.Split(viper.GetString("admin"), ",")

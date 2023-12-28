@@ -3,90 +3,77 @@ package bots
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"time"
 
+	"github.com/go-telegram/bot"
 	"github.com/zhfreal/E5SubBot/config"
-	"github.com/zhfreal/E5SubBot/db"
 	"github.com/zhfreal/E5SubBot/logger"
-	"go.uber.org/zap"
-	"golang.org/x/net/proxy"
-	tb "gopkg.in/tucnak/telebot.v2"
+	"github.com/zhfreal/E5SubBot/storage"
 )
 
-var bot *tb.Bot
-
-const (
-	logo = `
-  ______ _____ _____       _     ____        _   
- |  ____| ____/ ____|     | |   |  _ \      | |  
- | |__  | |__| (___  _   _| |__ | |_) | ___ | |_ 
- |  __| |___ \\___ \| | | | '_ \|  _ < / _ \| __|
- | |____ ___) |___) | |_| | |_) | |_) | (_) | |_ 
- |______|____/_____/ \__,_|_.__/|____/ \___/ \__|
-`
-)
-
-func Start(work_dir string) {
+func Start(conf_file string, show_token bool, account string) {
 	var err error
+
+	config.Init(conf_file)
+	logger.Init(config.LogIntoFile, config.LogDir, config.LogFile, config.LogLevel, config.MaxSize, config.MaxBackups, config.MaxAge)
+	// storage init must be done after logger init, because storage.Init() would using logger
+	storage.Init()
+	// self Init
+	Init()
+	if show_token {
+		ShowToken(account)
+		return
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	opts := []bot.Option{
+		bot.WithDefaultHandler(replyHandler),
+	}
+	// add socks5 proxy if it is set in config
+	// make proxied bot client base on config.ProxyObj
+	if config.ProxyObj != nil && config.ProxyObj.Url != nil {
+		transport := &http.Transport{
+			Proxy: http.ProxyURL(config.ProxyObj.Url),
+		}
+		opts = append(opts, bot.WithHTTPClient(time.Minute, &http.Client{Transport: transport}))
+	}
+
+	botTelegram, err = bot.New(config.BotToken, opts...)
+	if nil != err {
+		// panics for the sake of simplicity.
+		// you should handle this error properly in your code.
+		fmt.Println("failed to create bot", "error", err.Error())
+		os.Exit(1)
+	}
+	// register handlers
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/help", bot.MatchTypeExact, helpHandler)
+	// for admin
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/bindapp", bot.MatchTypeExact, bindAppHandler)
+	// for all
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/bind", bot.MatchTypeExact, bindAccountHandler)
+	// for all
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/reauth", bot.MatchTypeExact, reAuthAccountHandler)
+	// for all
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/unbind", bot.MatchTypeExact, unBindAccountHandler)
+	// for admin
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/unbindother", bot.MatchTypeExact, unBindAccountHandlerOther)
+	// for admin
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/delapp", bot.MatchTypeExact, delAppHandler)
+	// for all
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/stat", bot.MatchTypeExact, statHandler)
+	// for admin
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/statall", bot.MatchTypeExact, statAllHandler)
+	// init background task
+	// this must be called after bot initialized
+	storage.FindUserConfigByAppIDTgIDMsUsername(1, 358920093, "zhfreal@iesoft.onmicrosoft.com")
+	InitBackgroundTasks()
+	// this is for test only
+	// PerformTasks()
+	botTelegram.Start(ctx)
+	// show logo after boot start
 	fmt.Print(logo)
-
-	config.Init(work_dir)
-	logger.Init(work_dir)
-	db.Init()
-	InitTask()
-
-	poller := &tb.LongPoller{Timeout: 15 * time.Second}
-	midPoller := tb.NewMiddlewarePoller(poller, func(upd *tb.Update) bool {
-		if upd.Message == nil {
-			return true
-		}
-		if !upd.Message.Private() {
-			return false
-		}
-		return true
-	})
-	setting := tb.Settings{
-		Token:  config.BotToken,
-		Poller: midPoller,
-	}
-
-	if config.Socks5 != "" {
-		dialer, err := proxy.SOCKS5("tcp", config.Socks5, nil, proxy.Direct)
-		if err != nil {
-			zap.S().Fatalw("failed to get dialer",
-				"error", err, "proxy", config.Socks5)
-		}
-		transport := &http.Transport{}
-		transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-			return dialer.Dial(network, address)
-		}
-		setting.Client = &http.Client{Transport: transport}
-	}
-
-	bot, err = tb.NewBot(setting)
-	if err != nil {
-		zap.S().Fatalw("failed to create bot", "error", err)
-	}
-	fmt.Printf("Bot: %d %s\n", bot.Me.ID, bot.Me.Username)
-
-	makeHandlers()
-	fmt.Println("Bot Start")
-	fmt.Println("------------")
-	bot.Start()
-}
-
-func makeHandlers() {
-	// 所有用户
-	bot.Handle("/start", bStart)
-	bot.Handle("/my", bMy)
-	bot.Handle("/bind", bBind)
-	bot.Handle("/unbind", bUnBind)
-	bot.Handle("/export", bExport)
-	bot.Handle("/help", bHelp)
-	bot.Handle(tb.OnText, bOnText)
-	// 管理员
-	bot.Handle("/task", bTask)
-	bot.Handle("/log", bLog)
 }

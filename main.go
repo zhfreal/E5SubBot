@@ -1,59 +1,50 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
-	flag "github.com/spf13/pflag"
 	"github.com/zhfreal/E5SubBot/bots"
 )
 
 var (
-	runable = "E5SubBot"
-	version = "dev"
+	APPName = "E5SubBot"
+	Version = "dev"
 )
 
 func print_version() {
-	fmt.Printf("%v %v\n", runable, version)
+	fmt.Printf("%v %v\n", APPName, Version)
 }
 
 func main() {
-	var work_dir string
+	var conf string
 	var show_version bool
-	var help = "\n" + runable + " " + version + `
+	var show_token bool
+	var accounts_for_show string
+	help := APPName + " " + Version + `
     Usage: E5SubBot [options]
     options:
-        -d|--conf-dir  work directory for E5SubBot.
-        -v|--version   show version.
-        -h|--help      show help.
-    `
-	flag.StringVarP(&work_dir, "conf-dir", "d", ".", "work directory for E5SubBot.")
-	flag.BoolVarP(&show_version, "version", "v", false, "Show version.")
+        -c|-conf          config file path or folder contain "config.yaml" or "config.yml". "/etc/e5bot/" as default.
+        -S|-show-token    show all bounded accounts's token.
+        -a|-account       specific the account bounded for show, work with "-S|-show-token".
+        -v|-version       show version.
+        -h|-help          show help.
+`
+	flag.StringVar(&conf, "conf", "/etc/e5bot/", "config file path or folder contain \"config.yaml\" or \"config.yml\".")
+	flag.StringVar(&conf, "c", "/etc/e5bot/", "config file path or folder contain \"config.yaml\" or \"config.yml\".")
+	flag.BoolVar(&show_token, "show-token", false, "show all bounded accounts's token.")
+	flag.BoolVar(&show_token, "S", false, "show all bounded accounts's token.")
+	flag.StringVar(&accounts_for_show, "account", "", "specific the account bounded for show, work with -S|-show-token.")
+	flag.StringVar(&accounts_for_show, "a", "", "specific the account bounded for show, work with -S|-show-token.")
+	flag.BoolVar(&show_version, "version", false, "Show version.")
+	flag.BoolVar(&show_version, "v", false, "Show version.")
 	flag.Usage = func() { fmt.Print(help) }
 	flag.Parse()
 	if show_version {
 		print_version()
 		os.Exit(0)
 	}
-	if len(work_dir) == 0 {
-		fmt.Println("No config directory, please use \"-d|--conf-dir\"")
-		os.Exit(1)
-	}
-	if t_dir_list, t_err := os.ReadDir(work_dir); t_err != nil {
-		fmt.Printf("Config directory \"%v\"does not exist!", work_dir)
-		os.Exit(1)
-	} else {
-		t_config_yaml_found := false
-		for _, t_file := range t_dir_list {
-			if t_file.Name() == "config.yml" || t_file.Name() == "config.yaml" {
-				t_config_yaml_found = true
-				break
-			}
-		}
-		if !t_config_yaml_found {
-			fmt.Printf("Neigther \"config.yml\" nor \"config.yaml\" is in config directory \"%v\"!\n", work_dir)
-			os.Exit(1)
-		}
-	}
-	bots.Start(work_dir)
+
+	bots.Start(conf, show_token, accounts_for_show)
 }

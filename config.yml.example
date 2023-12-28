@@ -9,6 +9,7 @@ notice: |-
   bbb
   ccc
 cron: "1 */1 * * *"
+cron_notice: "*/10 * * * *"
 db: sqlite
 table: users
 # mysql:
