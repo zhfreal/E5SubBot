@@ -50,23 +50,27 @@ func Start(conf_file string, show_token bool, account string) {
 		os.Exit(1)
 	}
 	// register handlers
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/help", bot.MatchTypeExact, helpHandler)
-	// for admin
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/bindapp", bot.MatchTypeExact, bindAppHandler)
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDHelp, bot.MatchTypeExact, helpHandler)
+	// for admin, we match "/bindApp <client_id> <app_alias>" in replyHandler
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDBindApp, bot.MatchTypeExact, bindAppHandler)
+	// for all, we match "/bind <app_alias>" in replyHandler
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDBind, bot.MatchTypeExact, bindAccountHandler)
+	// for all, we match "/reAuth <app_alias> <user_alias>" in replyHandler
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDReAuth, bot.MatchTypeExact, reAuthAccountHandler)
+	// for all, we match "/unbind <app_alias> <user_alias>" in replyHandler
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDBind, bot.MatchTypeExact, unBindAccountHandler)
+	// for admin, we match "/unbindOther <app_alias> <user_alias>" in replyHandler
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDUnbindOther, bot.MatchTypeExact, unBindAccountHandlerOther)
+	// for admin, we match "/delApp <app_alias>" in replyHandler
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDDelApp, bot.MatchTypeExact, delAppHandler)
 	// for all
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/bind", bot.MatchTypeExact, bindAccountHandler)
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDListApps, bot.MatchTypeExact, showAPPsHandler)
 	// for all
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/reauth", bot.MatchTypeExact, reAuthAccountHandler)
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDListUsers, bot.MatchTypeExact, showBoundUsersHandler)
 	// for all
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/unbind", bot.MatchTypeExact, unBindAccountHandler)
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDStat, bot.MatchTypeExact, statHandler)
 	// for admin
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/unbindother", bot.MatchTypeExact, unBindAccountHandlerOther)
-	// for admin
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/delapp", bot.MatchTypeExact, delAppHandler)
-	// for all
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/stat", bot.MatchTypeExact, statHandler)
-	// for admin
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, "/statall", bot.MatchTypeExact, statAllHandler)
+	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDStatAll, bot.MatchTypeExact, statAllHandler)
 	// init background task
 	// this must be called after bot initialized
 	InitBackgroundTasks()
