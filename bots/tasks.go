@@ -37,7 +37,7 @@ func PerformTasks() {
 	// record this task
 	t_start_time := time.Now()
 	// get all users config
-	all_users_config, e := storage.GetAllUsersConfigsEnabled()
+	all_users_config, e := storage.GetAllUsersEnabled()
 	if e != nil {
 		logger.Error("<PerformTasks> failed to get all users config, failed with: %v\n", e.Error())
 		return
@@ -48,7 +48,7 @@ func PerformTasks() {
 		return
 	}
 	app_map := make(map[uint]string, 0)
-	all_apps, _ := storage.GetAllAppConfigsEnabled()
+	all_apps, _ := storage.GetAllAppEnabled()
 	for _, v := range all_apps {
 		app_map[v.ID] = v.Alias
 	}

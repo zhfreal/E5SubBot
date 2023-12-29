@@ -90,7 +90,7 @@ type AppConfigStat struct {
 	ID       uint
 	ClientId string
 	Alias    string
-	Count    int
+	Bound    int
 }
 
 // just for stat notification
@@ -137,19 +137,19 @@ func DelAppConfigByClientID(client_id string) error {
 	return DB.Table(Table_APPs).Where("client_id = ?", client_id).Delete(&AppConfig{}).Error
 }
 
-func GetAllAppConfigs() ([]*AppConfig, error) {
+func GetAllApp() ([]*AppConfig, error) {
 	var configs []*AppConfig
 	err := DB.Table(Table_APPs).Find(&configs).Error
 	return configs, err
 }
 
-func GetAllAppConfigsEnabled() ([]*AppConfig, error) {
+func GetAllAppEnabled() ([]*AppConfig, error) {
 	var configs []*AppConfig
 	err := DB.Table(Table_APPs).Find(&configs).Where("enabled = ?", 1).Error
 	return configs, err
 }
 
-func GetAppConfig(id uint) (*AppConfig, error) {
+func GetAppByID(id uint) (*AppConfig, error) {
 	var config AppConfig
 	t := DB.Table(Table_APPs).Where("id = ?", id).First(&config)
 	err := t.Error
@@ -160,13 +160,13 @@ func GetAppConfig(id uint) (*AppConfig, error) {
 }
 
 func GetAppIDByClientID(client_id string) (uint, error) {
-	var config AppConfig
-	t := DB.Table(Table_APPs).Where("client_id = ?", client_id).First(&config)
-	err := t.Error
-	if t.RowsAffected == 0 {
-		return 0, err
+	config, e := GetAppByClientID(client_id)
+	if e != nil {
+		return 0, e
+	} else if config == nil {
+		return 0, fmt.Errorf("can't get app ID by client_id %s", client_id)
 	}
-	return config.ID, err
+	return config.ID, nil
 }
 
 func GetAppByClientID(client_id string) (*AppConfig, error) {
@@ -179,61 +179,121 @@ func GetAppByClientID(client_id string) (*AppConfig, error) {
 	return &config, err
 }
 
+func GetAppByAlias(alias string) (*AppConfig, error) {
+	var config AppConfig
+	t := DB.Table(Table_APPs).Where("alias = ?", alias).First(&config)
+	err := t.Error
+	if t.RowsAffected == 0 {
+		return nil, err
+	}
+	return &config, err
+}
+
 // "id": app_id
-func AppConfigHas(id uint) bool {
+func AppsHas(id uint) bool {
 	return !(DB.Table(Table_APPs).
 		Where("id = ?", id).
 		First(&AppConfig{}).RowsAffected == 0)
 }
 
-func AppConfigHasClientID(client_id string) bool {
+func AppsHasClientID(client_id string) bool {
 	return !(DB.Table(Table_APPs).
 		Where("client_id = ?", client_id).
 		First(&AppConfig{}).RowsAffected == 0)
 }
 
-func AppConfigHasAlias(alias string) bool {
+func AppsHasAlias(alias string) bool {
 	return !(DB.Table(Table_APPs).
 		Where("alias = ?", alias).
 		First(&AppConfig{}).RowsAffected == 0)
 }
 
-func AppConfigHasClientIDOrAlias(client_id, alias string) bool {
-	return AppConfigHasClientID(client_id) || AppConfigHasAlias(alias)
+func AppsHasClientIDOrAlias(client_id, alias string) bool {
+	return AppsHasClientID(client_id) || AppsHasAlias(alias)
 }
 
-func GetAppConfigStat() map[string]*AppConfigStat {
-	a := GetUsersConfigStat()
-	m := make(map[string]*AppConfigStat)
-	apps, _ := GetAllAppConfigs()
-	for _, app := range apps {
-		m[app.Alias] = &AppConfigStat{
-			ID:       app.ID,
-			ClientId: app.ClientId,
-			Alias:    app.Alias,
-			Count:    0,
+// get specific app stats by it's ID, used by admin
+func GetAppStatByID(id uint) *AppConfigStat {
+	all_user_stat := GetAppsStat()
+	for _, stat := range all_user_stat {
+		if stat.ID == id {
+			return stat
 		}
 	}
-	for k, v := range a {
-		m[k] = v
+	return nil
+}
+
+// get specific app stats by it's alias, used by admin
+func GetAppStatByAlias(alias string) *AppConfigStat {
+	all_user_stat := GetAppsStat()
+	for _, stat := range all_user_stat {
+		if stat.Alias == alias {
+			return stat
+		}
+	}
+	return nil
+}
+
+// get all Apps stats, used by admin
+func GetAppsStat() map[string]*AppConfigStat {
+	var stats []*AppConfigStat
+	DB.Table(Table_APPs).Select(Table_APPs + ".id, " + Table_APPs + ".client_id, " + Table_APPs + ".alias, count(*) as bound").
+		Joins("right join " + Table_Users + " on " + Table_APPs + ".id = " + Table_Users + ".app_id").
+		Group(Table_APPs + ".id, " + Table_APPs + ".client_id, " + Table_APPs + ".alias").Find(&stats)
+	m := make(map[string]*AppConfigStat)
+	for _, stat := range stats {
+		m[stat.Alias] = stat
 	}
 	return m
 }
 
-func GetAppConfigStatByTgID(tg_id int64) map[string]*AppConfigStat {
-	a := GetUsersConfigStatByTgID(tg_id)
-	m := make(map[string]*AppConfigStat)
-	apps, _ := GetAllAppConfigs()
-	for _, app := range apps {
-		m[app.Alias] = &AppConfigStat{
-			ID:       app.ID,
-			ClientId: app.ClientId,
-			Alias:    app.Alias,
-			Count:    0,
+// get all apps without any user bound, return []*AppConfigStat
+func GetAppStatsOnlyNoUserBound() []*AppConfigStat {
+	all_apps := GetAppsStat()
+	var stats []*AppConfigStat
+	for _, app := range all_apps {
+		if app.Bound == 0 {
+			stats = append(stats, app)
 		}
 	}
-	for k, v := range a {
-		m[k] = v
+	return stats
+}
+
+// get all apps with users bound, return []*AppConfigStat
+// used by admin only
+func GetAppStatsOnlyBoundUser() []*AppConfigStat {
+	all_apps := GetAppsStat()
+	var stats []*AppConfigStat
+	for _, app := range all_apps {
+		if app.Bound > 0 {
+			stats = append(stats, app)
+		}
+	}
+	return stats
+}
+
+// get all apps with users bound, return []*AppConfigStat
+func GetAppStatsForUser(tg_id int64) []*AppConfigStat {
+	all_apps := GetAppsStatByTgID(tg_id)
+	var stats []*AppConfigStat
+	for _, app := range all_apps {
+		if app.Bound > 0 {
+			stats = append(stats, app)
+		}
+	}
+	return stats
+}
+
+// get all Apps stats, these app already bound a account by the specific user's tg_id
+func GetAppsStatByTgID(tg_id int64) map[string]*AppConfigStat {
+	var stats []*AppConfigStat
+	DB.Table(Table_APPs).Select(Table_APPs+".id, "+Table_APPs+".client_id, "+Table_APPs+".alias, count(*) as bound").
+		Where(Table_Users+".tg_id = ?", tg_id).
+		Joins("right join " + Table_Users + " on " + Table_APPs + ".id = " + Table_Users + ".app_id").
+		Group(Table_APPs + ".id, " + Table_APPs + ".client_id, " + Table_APPs + ".alias").Find(&stats)
+	m := make(map[string]*AppConfigStat)
+	for _, stat := range stats {
+		m[stat.Alias] = stat
 	}
 	return m
 }
@@ -259,16 +319,16 @@ func (u *Users) TableName() string {
 	return Table_Users
 }
 
-func AddUsersConfig(c *Users) error {
+func AddUsers(c *Users) error {
 	return DB.Create(c).Error
 }
 
-func UpdateUsersConfig(c *Users) error {
+func UpdateUsers(c *Users) error {
 	return DB.Save(c).Error
 }
 
-func UpdateUsersConfigTokens(id uint, uc *Users) error {
-	c, e := GetUsersConfigByID(id)
+func UpdateUsersTokens(id uint, uc *Users) error {
+	c, e := GetUsersByID(id)
 	if e != nil {
 		return e
 	}
@@ -278,17 +338,17 @@ func UpdateUsersConfigTokens(id uint, uc *Users) error {
 	return DB.Save(c).Error
 }
 
-func DelUsersConfig(id uint) error {
+func DelUsers(id uint) error {
 	return DB.Table(Table_Users).Where("id = ?", id).Delete(&Users{}).Error
 }
 
-func GetAllUsersConfigs() ([]*Users, error) {
+func GetAllUsers() ([]*Users, error) {
 	var configs []*Users
 	err := DB.Table(Table_Users).Find(&configs).Error
 	return configs, err
 }
 
-func GetAllUsersConfigsEnabled() ([]*Users, error) {
+func GetAllUsersEnabled() ([]*Users, error) {
 	var configs []*Users
 	err := DB.Table(Table_Users).
 		Joins("join "+Table_APPs+" on "+Table_APPs+".id = "+Table_Users+".app_id").
@@ -297,7 +357,7 @@ func GetAllUsersConfigsEnabled() ([]*Users, error) {
 	return configs, err
 }
 
-func GetUsersConfigByID(id uint) (*Users, error) {
+func GetUsersByID(id uint) (*Users, error) {
 	var config Users
 	t := DB.Table(Table_Users).Where("id = ?", id).First(&config)
 	err := t.Error
@@ -307,7 +367,7 @@ func GetUsersConfigByID(id uint) (*Users, error) {
 	return &config, err
 }
 
-func GetUsersConfigByAppIDAndMsID(app_id, ms_id uint) (*Users, error) {
+func GetUsersByAppIDAndMsID(app_id, ms_id uint) (*Users, error) {
 	var config Users
 	t := DB.Table(Table_Users).Where("app_id = ? AND ms_id = ?", app_id, ms_id).First(&config)
 	err := t.Error
@@ -317,13 +377,23 @@ func GetUsersConfigByAppIDAndMsID(app_id, ms_id uint) (*Users, error) {
 	return &config, err
 }
 
-func GetUsersConfigsByAppID(app_id uint) ([]*Users, error) {
+func GetUsersByAppID(app_id uint) ([]*Users, error) {
 	var configs []*Users
 	err := DB.Table(Table_Users).Where("app_id = ?", app_id).Find(&configs).Error
 	return configs, err
 }
 
-func GetUsersConfigsByClientID(client_id string) ([]*Users, error) {
+func GetUsersByAppIDUserAlias(app_id uint, alias string) (*Users, error) {
+	var config *Users
+	t := DB.Table(Table_Users).Where("app_id = ? AND alias = ?", app_id, alias).Find(&config)
+	err := t.Error
+	if t.RowsAffected == 0 {
+		return nil, err
+	}
+	return config, err
+}
+
+func GetUsersByClientID(client_id string) ([]*Users, error) {
 	var configs []*Users
 	t_query := fmt.Sprintf("select %s.* from %s, %s where %s.app_id = %s.id and %s.client_id = ?",
 		Table_Users, Table_Users, Table_APPs, Table_Users, Table_APPs, Table_APPs)
@@ -333,37 +403,49 @@ func GetUsersConfigsByClientID(client_id string) ([]*Users, error) {
 	return configs, err
 }
 
-func GetUsersConfigsByAppIDAndTgID(app_id uint, tg_id int64) ([]*Users, error) {
+func GetUsersByAppIDTgID(app_id uint, tg_id int64) ([]*Users, error) {
 	var configs []*Users
 	err := DB.Table(Table_Users).Where("app_id = ? AND tg_id = ?", app_id, tg_id).Find(&configs).Error
 	return configs, err
 }
 
-func GetUsersConfigsByAppIDAndTgIDMsUsername(app_id uint, tg_id int64, ms_username string) ([]*Users, error) {
-	var configs []*Users
-	err := DB.Table(Table_Users).Where("app_id = ? AND tg_id = ? AND ms_username = ?", app_id, tg_id, ms_username).Find(&configs).Error
-	return configs, err
+func GetUserByAppIDTgIDMsUsername(app_id uint, tg_id int64, ms_username string) ([]*Users, error) {
+	var config []*Users
+	t := DB.Table(Table_Users).Where("app_id = ? AND tg_id = ? AND ms_username = ?", app_id, tg_id, ms_username).First(&config)
+	if t.RowsAffected == 0 || t.Error != nil {
+		return nil, t.Error
+	}
+	return config, nil
 }
 
-func GetUsersConfigsByTgID(tg_id int64) ([]*Users, error) {
+func GetUserByAppIDTgIDUserAlias(app_id uint, tg_id int64, user_alias string) (*Users, error) {
+	var config *Users
+	t := DB.Table(Table_Users).Where("app_id = ? AND tg_id = ? AND alias = ?", app_id, tg_id, user_alias).First(&config)
+	if t.RowsAffected == 0 || t.Error != nil {
+		return nil, t.Error
+	}
+	return config, nil
+}
+
+func GetUsersByTgID(tg_id int64) ([]*Users, error) {
 	var configs []*Users
 	err := DB.Table(Table_Users).Where("tg_id = ?", tg_id).Find(&configs).Error
 	return configs, err
 }
 
-func UserConfigHasAppIDTgIDMsUsername(app_id uint, tg_id int64, ms_username string) bool {
-	found, _ := FindUserConfigByAppIDTgIDMsUsername(app_id, tg_id, ms_username)
+func HasUserByAppIDTgIDMsUsername(app_id uint, tg_id int64, ms_username string) bool {
+	found, _ := FindUserByAppIDTgIDMsUsername(app_id, tg_id, ms_username)
 	return found
 }
 
-func FindUserConfigByAppIDTgIDMsUsername(app_id uint, tg_id int64, ms_username string) (bool, *Users) {
+func FindUserByAppIDTgIDMsUsername(app_id uint, tg_id int64, ms_username string) (bool, *Users) {
 	var config Users
 	t := DB.Table(Table_Users).Where("app_id = ? AND tg_id = ? AND ms_username = ?", app_id, tg_id, ms_username).
 		First(&config).RowsAffected
 	return t == 1, &config
 }
 
-func UpdateUserConfigByAppIDTgIDMsUsername(uc *Users) error {
+func UpdateUserByAppIDTgIDMsUsername(uc *Users) error {
 	app_id := uc.AppId
 	tg_id := uc.TgId
 	ms_username := uc.MsUsername
@@ -375,31 +457,6 @@ func UpdateUserConfigByAppIDTgIDMsUsername(uc *Users) error {
 		ExpiresAt:    uc.ExpiresAt,
 	}
 	return DB.Table(Table_Users).Where("app_id = ? AND tg_id = ? AND ms_username = ?", app_id, tg_id, ms_username).Updates(&new_uc).Error
-}
-
-func GetUsersConfigStat() map[string]*AppConfigStat {
-	var stats []*AppConfigStat
-	DB.Table(Table_APPs).Select(Table_APPs + ".id, " + Table_APPs + ".client_id, " + Table_APPs + ".alias, count(*) as count").
-		Joins("right join " + Table_Users + " on " + Table_APPs + ".id = " + Table_Users + ".app_id").
-		Group(Table_APPs + ".id, " + Table_APPs + ".client_id, " + Table_APPs + ".alias").Find(&stats)
-	m := make(map[string]*AppConfigStat)
-	for _, stat := range stats {
-		m[stat.Alias] = stat
-	}
-	return m
-}
-
-func GetUsersConfigStatByTgID(tg_id int64) map[string]*AppConfigStat {
-	var stats []*AppConfigStat
-	DB.Table(Table_APPs).Select(Table_APPs+".id, "+Table_APPs+".client_id, "+Table_APPs+".alias, count(*) as count").
-		Where(Table_Users+".tg_id = ?", tg_id).
-		Joins("right join " + Table_Users + " on " + Table_APPs + ".id = " + Table_Users + ".app_id").
-		Group(Table_APPs + ".id, " + Table_APPs + ".client_id, " + Table_APPs + ".alias").Find(&stats)
-	m := make(map[string]*AppConfigStat)
-	for _, stat := range stats {
-		m[stat.Alias] = stat
-	}
-	return m
 }
 
 // get all UsersConfig by match with given email in UsersConfig.MsUsername
@@ -540,7 +597,7 @@ func InitStats() error {
 	if e != nil {
 		return e
 	}
-	users, e := GetAllUsersConfigs()
+	users, e := GetAllUsers()
 	if e != nil {
 		return e
 	}

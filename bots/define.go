@@ -31,6 +31,17 @@ const (
 	ActionBindAccount      string = "BA"
 	BindCacheTimeInSeconds int    = 30 * 60
 	RefreshTokenBefore     int    = 60 * 5 // time in seconds, we refresh token in this second before it actually expire
+	CMDHelp                string = "/help"
+	CMDBindApp             string = "/bindApp"
+	CMDBind                string = "/bind"
+	CMDUnbind              string = "/unbind"
+	CMDListApps            string = "/listApps"
+	CMDListUsers           string = "/listUsers"
+	CMDStat                string = "/stat"
+	CMDReAuth              string = "/reAuth"
+	CMDUnbindOther         string = "/unbindOther"
+	CMDStatAll             string = "/statAll"
+	CMDDelApp              string = "/delApp"
 )
 
 const (
@@ -44,8 +55,9 @@ const (
 )
 
 const (
-	ReplyByCallBack = iota
-	ReplyByPureMsg
+	ReplyFromCallBack int = iota
+	ReplyWithPureMsg
+	InitialMsg
 )
 
 var (
@@ -54,8 +66,10 @@ var (
     命令：
     /bind        绑定帐号
     /unbind      解绑账户
-    /reauth      重新授权已绑定账户
+    /reAuth      重新授权已绑定账户
     /stat        查看统计信息
+    /listApps    查看已绑定应用
+    /listUsers   查看已绑定用户
 `
 	HelpContentTail string = `
     /help        帮助
@@ -63,10 +77,10 @@ var (
 `
 	HelpContent      string = HelpContentHeader + HelpContentTail
 	HelpContentAdmin string = HelpContentHeader + `
-    /bindapp     绑定应用(管理员)
-    /delapp      删除应用(管理员)
-    /unbindother 解给其他用户(管理员)
-    /statall     统计所有用户(管理员)
+    /bindApp     绑定应用(管理员)
+    /delApp      删除应用(管理员)
+    /unbindOther 解给其他用户(管理员)
+    /statAll     统计所有用户(管理员)
     ` + HelpContentTail
 )
 
@@ -348,7 +362,7 @@ type usersData struct {
 
 // new UsersConfigCache with all valid UsersConfigs stored in db
 func NewUsersConfigCache() *UsersConfigCache {
-	a, e := storage.GetAllUsersConfigs()
+	a, e := storage.GetAllUsers()
 	if e != nil {
 		fmt.Println("failed to get all users configs", e.Error())
 		os.Exit(1)
@@ -406,7 +420,7 @@ func (u *UsersConfigCache) resetFailCount(id uint) {
 	u.lockerMappings[id].refreshFailCount = 0
 }
 
-func (u *UsersConfigCache) cleanFailCount(id uint) {
+func (u *UsersConfigCache) delCache(id uint) {
 	if !u.has(id) {
 		return
 	}
@@ -433,8 +447,8 @@ func (u *UsersConfigCache) ResetFailCount(id uint) {
 	u.resetFailCount(id)
 }
 
-func (u *UsersConfigCache) CleanFailCount(id uint) {
-	u.cleanFailCount(id)
+func (u *UsersConfigCache) DelCache(id uint) {
+	u.delCache(id)
 }
 
 // func (u *UsersConfigCache) GetEmail(id uint) string {
@@ -619,7 +633,7 @@ func GetToken(uc *storage.Users) (string, bool, error) {
 			uc.AccessToken = access_token
 			uc.RefreshToken = refresh_token
 			uc.ExpiresAt = expire_at.Unix()
-			storage.UpdateUsersConfigTokens(uc.ID, uc)
+			storage.UpdateUsersTokens(uc.ID, uc)
 		}
 	} else {
 		access_token = uc.AccessToken
@@ -632,7 +646,7 @@ func ShowToken(account string) {
 	var uc_list []*storage.Users
 	var e error
 	if len(account) == 0 {
-		uc_list, e = storage.GetAllUsersConfigs()
+		uc_list, e = storage.GetAllUsers()
 	} else {
 		uc_list, e = storage.GetUsersConfigIDByEmail(account)
 	}
@@ -663,7 +677,7 @@ func ShowToken(account string) {
 				uc.AccessToken = access_token
 				uc.RefreshToken = refresh_token
 				uc.ExpiresAt = expire_at.Unix()
-				storage.UpdateUsersConfigTokens(uc.ID, uc)
+				storage.UpdateUsersTokens(uc.ID, uc)
 			}
 		}
 		access_token = uc.AccessToken

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -210,4 +211,12 @@ func MakeFolderAndSetPermission(path string) error {
 		}
 		return err
 	}
+}
+
+// split string whit whitespace indentation: \s+
+func SplitString(s string) []string {
+	s = strings.TrimSpace(s)
+	r := regexp.MustCompile(`\s+`)
+	t_list := r.Split(s, -1)
+	return t_list
 }
