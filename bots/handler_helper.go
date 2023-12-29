@@ -1476,13 +1476,32 @@ func handleSendStats(ctx context.Context, b *bot.Bot, tg_id int64, results []*st
 		})
 		return
 	}
+	var results_map map[string]map[string][]*storage.ResultStatsForNotify = make(map[string]map[string][]*storage.ResultStatsForNotify)
+	for _, v := range results {
+		if results_map[v.AppAlias] == nil {
+			results_map[v.AppAlias] = make(map[string][]*storage.ResultStatsForNotify, 0)
+		}
+		if results_map[v.AppAlias][v.UserAlias] == nil {
+			results_map[v.AppAlias][v.UserAlias] = make([]*storage.ResultStatsForNotify, 0)
+		}
+		results_map[v.AppAlias][v.UserAlias] = append(results_map[v.AppAlias][v.UserAlias], v)
+	}
 	t_msg_builder := strings.Builder{}
 	t_msg_builder.WriteString("Statistics:")
-	for _, v := range results {
-		t_time_str := utils.GetTimeString(v.LatestTime)
-		t_t_msg := fmt.Sprintf("  %v - %v - %v - %v(s)/%v(f) - %v", v.AppAlias, v.UserAlias, v.OpAlias, v.Success, v.Failure, t_time_str)
+	for app_alias, v_1 := range results_map {
+		t_t_msg := fmt.Sprintf("%v", app_alias)
 		t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
+		for user_alias, v_2 := range v_1 {
+			t_t_msg := fmt.Sprintf("    -  %v", user_alias)
+			t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
+			for _, v := range v_2 {
+				t_time_str := utils.GetTimeString(v.LatestTime)
+				t_t_msg := fmt.Sprintf("        -  %v: %v(s)/%v(f) - %v", v.OpAlias, v.Success, v.Failure, t_time_str)
+				t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
+			}
+		}
 	}
+
 	t_msg := t_msg_builder.String()
 	t_msg_builder.Reset()
 	b.SendMessage(ctx, &bot.SendMessageParams{
