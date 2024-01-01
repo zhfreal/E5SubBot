@@ -666,7 +666,7 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 	UsersConfigCacheObj.InitFailCount(userConfig.ID)
 }
 
-// handle "/reAuth" and "/reAuth <app_alias> <user_alias>"
+// handle "/reAuth"
 func reAuthAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	// get chat id
 	chat_id := update.Message.Chat.ID
@@ -680,125 +680,82 @@ func reAuthAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update
 		})
 		return
 	}
-	// get full message
-	full_message := update.Message.Text
-	// get app_alias and user_alias
-	t_list := utils.SplitString(full_message)
-	if len(t_list) == 1 {
-		// the following code handle single "/reAuth" message
-		// get all UsersConfig
-		uc_list, e := storage.GetUsersByTgID(chat_id)
-		// handle database error
-		if e != nil || len(uc_list) == 0 {
-			var t_msg string
-			if e != nil {
-				// got error while get data from database
-				t_msg = "Failed to get your binding accounts, please contact admin"
-				logger.Errorf("<reAuthAccountHandler> failed to get users config from db with error: %v\n", e.Error())
-			} else {
-				// send different message for empty user's config
-				t_msg = "No binding accounts found! Please binding one with message \"/bind\"."
-			}
-			b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: chat_id,
-				Text:   t_msg,
-			})
-			return
-		}
-		// get apps data for their alias
-		apps_config, e := storage.GetAllApp()
-		if e != nil || len(apps_config) == 0 {
-			t_msg := "Failed to get apps-config from db, please contact admin"
-			if e != nil {
-				// got error while get data from database
-				logger.Errorf("<reAuthAccountHandler> failed to get apps-config from db with error: %v\n", e.Error())
-			}
-			b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: chat_id,
-				Text:   t_msg,
-			})
-			return
-		}
-		// make map to store {id, alias} for apps
-		app_alias_map := make(map[uint]string)
-		for _, app := range apps_config {
-			app_alias_map[app.ID] = app.Alias
+	// the following code handle single "/reAuth" message
+	// get all UsersConfig
+	uc_list, e := storage.GetUsersByTgID(chat_id)
+	// handle database error
+	if e != nil || len(uc_list) == 0 {
+		var t_msg string
+		if e != nil {
+			// got error while get data from database
+			t_msg = "Failed to get your binding accounts, please contact admin"
+			logger.Errorf("<reAuthAccountHandler> failed to get users config from db with error: %v\n", e.Error())
+		} else {
+			// send different message for empty user's config
+			t_msg = "No binding accounts found! Please binding one with message \"/bind\"."
 		}
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chat_id,
-			Text:   "Choose an account to re-auth.",
+			Text:   t_msg,
 		})
-		// loop through uc_list, and send option to user to choose to unbind it's account
-		for _, uc := range uc_list {
-			time.Sleep(BotSendMsgInterval)
-			app_alias := app_alias_map[uc.AppId]
-			t_msg := fmt.Sprintf("Re-auth: %v from APP - %v", uc.MsUsername, app_alias)
-			kb := &models.InlineKeyboardMarkup{
-				InlineKeyboard: [][]models.InlineKeyboardButton{
-					{
-						{Text: "Re-auth", CallbackData: ActionYes},
-					},
-				},
-			}
-			m, e := b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID:      chat_id,
-				ReplyMarkup: kb,
-				Text:        t_msg,
-			})
-			if e != nil {
-				logger.Errorf("<reAuthAccountHandler> failed to send re-auth message to %v with error: %v\n", chat_id, e.Error())
-				return
-			}
-			msg_id := m.ID
-			// add to BindCached
-			t_key := &MsgKey{m.Chat.ID, msg_id}
-			t_value := &MsgValue{
-				MsgType:   ReplyForReAuth,
-				ExpiredAt: GetExpiredTimeFromNowAfter(BindCacheTimeInSeconds),
-				Extra: &ExtraData{
-					ExtraData1Uint: uc.AppId,
-					ExtraData2Uint: uc.ID,
-				},
-			}
-			BindCachedObj.Add(t_key, t_value)
+		return
+	}
+	// get apps data for their alias
+	apps_config, e := storage.GetAllApp()
+	if e != nil || len(apps_config) == 0 {
+		t_msg := "Failed to get apps-config from db, please contact admin"
+		if e != nil {
+			// got error while get data from database
+			logger.Errorf("<reAuthAccountHandler> failed to get apps-config from db with error: %v\n", e.Error())
 		}
-	} else if len(t_list) == 3 {
-		// hand "/reAuth <app_alias> <user_alias>"
-		app_alias := t_list[1]
-		user_alias := t_list[2]
-		app_conf, e := storage.GetAppByAlias(app_alias)
-		if e != nil || app_conf == nil {
-			if e != nil {
-				// got error while get data from database
-				t_msg := fmt.Sprintf("can't get stored app info by app_alias %v, due to incorrect APP alias or internal error.", app_alias)
-				logger.Errorf("<reAuthAccountHandler> %v, failed with: %v\n", t_msg, e.Error())
-			}
-			b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: chat_id,
-				Text:   "Incorrect App alias",
-			})
-			return
-		}
-		user_conf, e := storage.GetUsersByAppIDUserAlias(app_conf.ID, user_alias)
-		if e != nil || user_conf == nil {
-			if e != nil {
-				t_msg := fmt.Sprintf("can't get stored user's config by user alias %v, due to incorrect user alias or internal error.", user_alias)
-				// got error while get data from database
-				logger.Errorf("<reAuthAccountHandler> %v, failed with: %v\n", t_msg, e.Error())
-			}
-			b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: chat_id,
-				Text:   "Incorrect user alias",
-			})
-			return
-		}
-		handleAccountAuth(ctx, b, chat_id, app_conf.ID, app_conf.ClientId, app_alias, user_conf.ID, true)
-	} else {
-		// incorrect message
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chat_id,
-			Text:   "Incorrect message, please use \"/reAuth\" or \"/reAuth <app_alias> <user_alias>\"",
+			Text:   t_msg,
 		})
+		return
+	}
+	// make map to store {id, alias} for apps
+	app_alias_map := make(map[uint]string)
+	for _, app := range apps_config {
+		app_alias_map[app.ID] = app.Alias
+	}
+	b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: chat_id,
+		Text:   "Choose an account to re-auth.",
+	})
+	// loop through uc_list, and send option to user to choose to unbind it's account
+	for _, uc := range uc_list {
+		time.Sleep(BotSendMsgInterval)
+		app_alias := app_alias_map[uc.AppId]
+		t_msg := fmt.Sprintf("Re-auth: %v from APP - %v", uc.MsUsername, app_alias)
+		kb := &models.InlineKeyboardMarkup{
+			InlineKeyboard: [][]models.InlineKeyboardButton{
+				{
+					{Text: "Re-auth", CallbackData: ActionYes},
+				},
+			},
+		}
+		m, e := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:      chat_id,
+			ReplyMarkup: kb,
+			Text:        t_msg,
+		})
+		if e != nil {
+			logger.Errorf("<reAuthAccountHandler> failed to send re-auth message to %v with error: %v\n", chat_id, e.Error())
+			return
+		}
+		msg_id := m.ID
+		// add to BindCached
+		t_key := &MsgKey{m.Chat.ID, msg_id}
+		t_value := &MsgValue{
+			MsgType:   ReplyForReAuth,
+			ExpiredAt: GetExpiredTimeFromNowAfter(BindCacheTimeInSeconds),
+			Extra: &ExtraData{
+				ExtraData1Uint: uc.AppId,
+				ExtraData2Uint: uc.ID,
+			},
+		}
+		BindCachedObj.Add(t_key, t_value)
 	}
 }
 
@@ -841,8 +798,8 @@ func reAuthUserByAppAliasUserAliasFromCMD(ctx context.Context, b *bot.Bot, chat_
 		return
 	}
 	// get app_alias and user_alias
-	app_alias := msg_list[0]
-	user_alias := msg_list[1]
+	app_alias := msg_list[1]
+	user_alias := msg_list[2]
 	// get app_id
 	appConf, e := storage.GetAppByAlias(app_alias)
 	// handle database error
@@ -1111,8 +1068,8 @@ func unbindUserFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list 
 		return
 	}
 	// get app_alias and user_alias
-	app_alias := msg_list[0]
-	user_alias := msg_list[1]
+	app_alias := msg_list[1]
+	user_alias := msg_list[2]
 	// get app_id
 	appConf, e := storage.GetAppByAlias(app_alias)
 	// handle database error
@@ -1159,8 +1116,8 @@ func unbindUserOtherFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_
 		return
 	}
 	// get app_alias and user_alias
-	app_alias := msg_list[0]
-	user_alias := msg_list[1]
+	app_alias := msg_list[1]
+	user_alias := msg_list[2]
 	// get app_id
 	appConf, e := storage.GetAppByAlias(app_alias)
 	// handle database error
