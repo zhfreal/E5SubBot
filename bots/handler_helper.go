@@ -471,7 +471,7 @@ func bindAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update) 
 
 	// list all app alias and offer an option to user to choose to bind an account
 	for _, app := range app_list {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(BotSendMsgInterval)
 		kb := &models.InlineKeyboardMarkup{
 			InlineKeyboard: [][]models.InlineKeyboardButton{
 				{
@@ -730,7 +730,7 @@ func reAuthAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update
 		})
 		// loop through uc_list, and send option to user to choose to unbind it's account
 		for _, uc := range uc_list {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(BotSendMsgInterval)
 			app_alias := app_alias_map[uc.AppId]
 			t_msg := fmt.Sprintf("Re-auth: %v from APP - %v", uc.MsUsername, app_alias)
 			kb := &models.InlineKeyboardMarkup{
@@ -923,7 +923,7 @@ func unbindAccountHandlerHelper(ctx context.Context, b *bot.Bot, chat_id int64, 
 	})
 	// send all app alias and offer an option to user to choose to unbind it's bounded account
 	for _, app := range stat {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(BotSendMsgInterval)
 		t_msg := fmt.Sprintf("Unbind from: %v(%v)", app.Alias, app.Bound)
 		kb := &models.InlineKeyboardMarkup{
 			InlineKeyboard: [][]models.InlineKeyboardButton{
@@ -996,7 +996,7 @@ func handleUnbindAccountS1(ctx context.Context, b *bot.Bot, key *MsgKey) {
 	// loop through uc_list, and send option to user to choose to unbind it's account
 	for _, uc := range uc_list {
 		// sleep fro a while, to void potential issue
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(BotSendMsgInterval)
 		handleUnbindAccountS1Helper(ctx, b, chat_id, uc, "handleUnbindAccountS1")
 	}
 }
@@ -1233,7 +1233,7 @@ func delAppHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	// loop through s, and send option to user to choose to delete it's account
 	for _, v := range s {
 		// sleep a little moment, void potential failure
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(BotSendMsgInterval)
 		t_msg := fmt.Sprintf("Delete: %v", v.Alias)
 		kb := &models.InlineKeyboardMarkup{
 			InlineKeyboard: [][]models.InlineKeyboardButton{
@@ -1355,7 +1355,7 @@ func delAppByFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, cmd_list []
 		}
 		// do deletion
 		// sleep a little moment, void potential failure
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(BotSendMsgInterval)
 		appDeletionHelper(ctx, b, chat_id, user_stat.ID, app_alias)
 	}
 }
@@ -1383,7 +1383,7 @@ func showAPPsHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	var t_msg string
 	t_msg = "APP:"
 	for _, v := range s {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(BotSendMsgInterval)
 		if config.AdminSet.Has(chat_id) {
 			t_msg = fmt.Sprintf("%v\n    -  %v, Count: %v", t_msg, v.Alias, v.Bound)
 		} else {

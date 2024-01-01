@@ -23,25 +23,26 @@ const (
 )
 
 const (
-	ActionBindLegacy       string = "BL"
-	ActionBindDeviceCode   string = "DC"
-	ActionYes              string = "YES"
-	ActionNo               string = "NO"
-	ActionCancel           string = "CANCEL"
-	ActionBindAccount      string = "BA"
-	BindCacheTimeInSeconds int    = 30 * 60
-	RefreshTokenBefore     int    = 60 * 5 // time in seconds, we refresh token in this second before it actually expire
-	CMDHelp                string = "/help"
-	CMDBindApp             string = "/bindApp"
-	CMDBind                string = "/bind"
-	CMDUnbind              string = "/unbind"
-	CMDListApps            string = "/listApps"
-	CMDListUsers           string = "/listUsers"
-	CMDStat                string = "/stat"
-	CMDReAuth              string = "/reAuth"
-	CMDUnbindOther         string = "/unbindOther"
-	CMDStatAll             string = "/statAll"
-	CMDDelApp              string = "/delApp"
+	ActionBindLegacy       string        = "BL"
+	ActionBindDeviceCode   string        = "DC"
+	ActionYes              string        = "YES"
+	ActionNo               string        = "NO"
+	ActionCancel           string        = "CANCEL"
+	ActionBindAccount      string        = "BA"
+	BindCacheTimeInSeconds int           = 30 * 60
+	RefreshTokenBefore     int           = 60 * 5                // time in seconds, we refresh token in this second before it actually expire
+	BotSendMsgInterval     time.Duration = 50 * time.Millisecond // time.Duration in 50 milliseconds between two msgs from bot
+	CMDHelp                string        = "/help"
+	CMDBindApp             string        = "/bindApp"
+	CMDBind                string        = "/bind"
+	CMDUnbind              string        = "/unbind"
+	CMDListApps            string        = "/listApps"
+	CMDListUsers           string        = "/listUsers"
+	CMDStat                string        = "/stat"
+	CMDReAuth              string        = "/reAuth"
+	CMDUnbindOther         string        = "/unbindOther"
+	CMDStatAll             string        = "/statAll"
+	CMDDelApp              string        = "/delApp"
 )
 
 const (
