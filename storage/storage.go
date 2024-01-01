@@ -418,9 +418,10 @@ func GetUserByAppIDTgIDMsUsername(app_id uint, tg_id int64, ms_username string) 
 	return config, nil
 }
 
+// user_alias is actually the ms_username
 func GetUserByAppIDTgIDUserAlias(app_id uint, tg_id int64, user_alias string) (*Users, error) {
 	var config *Users
-	t := DB.Table(Table_Users).Where("app_id = ? AND tg_id = ? AND alias = ?", app_id, tg_id, user_alias).First(&config)
+	t := DB.Table(Table_Users).Where("app_id = ? AND tg_id = ? AND ms_username = ?", app_id, tg_id, user_alias).First(&config)
 	if t.RowsAffected == 0 || t.Error != nil {
 		return nil, t.Error
 	}
