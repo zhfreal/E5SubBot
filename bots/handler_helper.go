@@ -624,6 +624,12 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 			// exists the original user's config
 			// try to update storage
 			storage.UpdateUserByAppIDTgIDMsUsername(userConfig)
+			// send message to user
+			t_msg = fmt.Sprintf("Succeed to re-auth %v from APP %v!", userConfig.MsUsername, app_alias)
+			b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: chat_id,
+				Text:   t_msg,
+			})
 		}
 	} else {
 		// not re-auth, means we do /bind
