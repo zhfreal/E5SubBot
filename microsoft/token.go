@@ -21,7 +21,7 @@ func GetDeviceCode(ctx context.Context, client_id string) (*TokenCache, error) {
 		return nil, e
 	}
 	if e_b := detect_error(b); e_b != nil {
-		return nil, fmt.Errorf("failed to get device code, failed with: %v", e_b)
+		return nil, fmt.Errorf("failed to get device code, failed with: %v", string(e_b))
 	}
 	t_device_code_rest := DeviceCodeREST{}
 	// parse DeviceCodeREST data in string which store in content into t_device_code_rest

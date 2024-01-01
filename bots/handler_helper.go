@@ -1381,12 +1381,13 @@ func showAPPsHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	}
 	// loop through s, and send option to user to choose to delete it's account
 	var t_msg string
+	t_msg = "APP:"
 	for _, v := range s {
 		time.Sleep(100 * time.Millisecond)
 		if config.AdminSet.Has(chat_id) {
-			t_msg = fmt.Sprintf("%v\nAPP: %v, Count: %v", t_msg, v.Alias, v.Bound)
+			t_msg = fmt.Sprintf("%v\n    -  %v, Count: %v", t_msg, v.Alias, v.Bound)
 		} else {
-			t_msg = fmt.Sprintf("%v\nAPP: %v", t_msg, v.Alias)
+			t_msg = fmt.Sprintf("%v\n    -  %v", t_msg, v.Alias)
 		}
 	}
 	b.SendMessage(ctx, &bot.SendMessageParams{
@@ -1416,12 +1417,23 @@ func showBoundUsersHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 		})
 		return
 	}
-	// loop through s, and send option to user to choose to delete it's account
-	var t_msg string
+	// loop through s, make mapping
+	var result_map map[string][]*storage.ResultStatsForNotify = make(map[string][]*storage.ResultStatsForNotify)
 	for _, v := range s {
-		time.Sleep(100 * time.Millisecond)
-		t_msg = fmt.Sprintf("%v\nApp: %v, Account: %v", t_msg, v.AppAlias, v.UserAlias)
+		if _, ok := result_map[v.AppAlias]; !ok {
+			result_map[v.AppAlias] = make([]*storage.ResultStatsForNotify, 0)
+		}
+		result_map[v.AppAlias] = append(result_map[v.AppAlias], v)
 	}
+	var t_msg string
+	t_msg = "APP:"
+	for app_alias, v_1 := range result_map {
+		t_msg = fmt.Sprintf("%v\n    -  %v", t_msg, app_alias)
+		for _, v := range v_1 {
+			t_msg = fmt.Sprintf("%v\n        -  %v", t_msg, v.UserAlias)
+		}
+	}
+
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chat_id,
 		Text:   t_msg,
@@ -1489,14 +1501,14 @@ func handleSendStats(ctx context.Context, b *bot.Bot, tg_id int64, results []*st
 	t_msg_builder := strings.Builder{}
 	t_msg_builder.WriteString("Statistics:")
 	for app_alias, v_1 := range results_map {
-		t_t_msg := fmt.Sprintf("%v", app_alias)
+		t_t_msg := fmt.Sprintf("    -  %v", app_alias)
 		t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
 		for user_alias, v_2 := range v_1 {
-			t_t_msg := fmt.Sprintf("    -  %v", user_alias)
+			t_t_msg := fmt.Sprintf("        -  %v", user_alias)
 			t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
 			for _, v := range v_2 {
 				t_time_str := utils.GetTimeString(v.LatestTime)
-				t_t_msg := fmt.Sprintf("        -  %v: %v(s)/%v(f) - %v", v.OpAlias, v.Success, v.Failure, t_time_str)
+				t_t_msg := fmt.Sprintf("            -  %v: %v(s)/%v(f) - %v", v.OpAlias, v.Success, v.Failure, t_time_str)
 				t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
 			}
 		}
