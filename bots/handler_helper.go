@@ -828,9 +828,10 @@ func reAuthUserByAppAliasUserAliasFromCMD(ctx context.Context, b *bot.Bot, chat_
 			// database error, logging
 			logger.Errorf("<reAuthUserByAppAliasUserAliasFromCMD> failed to get user_id by alias %v, failed with: %v\n", user_alias, e.Error())
 		}
+	} else {
+		// do re-auth account
+		handleAccountAuth(ctx, b, chat_id, appConf.ID, appConf.ClientId, app_alias, userConf.ID, true)
 	}
-	// do re-auth account
-	handleAccountAuth(ctx, b, chat_id, appConf.ID, appConf.ClientId, app_alias, userConf.ID, true)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
