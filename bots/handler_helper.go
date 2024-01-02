@@ -3,6 +3,7 @@ package bots
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -1343,10 +1344,18 @@ func showAPPsHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		})
 		return
 	}
+	// to make app alias slice, and sort it
+	app_alias_list := make([]string, 0)
+	for _, v := range s {
+		app_alias_list = append(app_alias_list, v.Alias)
+	}
+	sort.Strings(app_alias_list)
+
 	// loop through s, and send option to user to choose to delete it's account
 	var t_msg string
 	t_msg = "APP:"
-	for _, v := range s {
+	for _, k := range app_alias_list {
+		v := s[k]
 		time.Sleep(BotSendMsgInterval)
 		if config.AdminSet.Has(chat_id) {
 			t_msg = fmt.Sprintf("%v\n    -  %v, Count: %v", t_msg, v.Alias, v.Bound)
@@ -1364,14 +1373,14 @@ func showAPPsHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 func showBoundUsersHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	chat_id := update.Message.Chat.ID
 	// get user config stats
-	var s []*storage.ResultStatsForNotify
+	var s []*storage.AppsStats
 	var e error
 	// this is an admin
 	if config.AdminSet.Has(chat_id) {
-		s, e = storage.GetAllStatsWithAlias()
+		s, e = storage.GetAllAppsStats()
 	} else {
 		// non-admin
-		s, e = storage.GetStatsByTgIDWithAlias(chat_id)
+		s, e = storage.GetAppsStatsByTgId(chat_id)
 	}
 	if len(s) == 0 || e != nil {
 		t_msg := "No users yet. Please /bind one."
@@ -1381,19 +1390,14 @@ func showBoundUsersHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 		})
 		return
 	}
-	// loop through s, make mapping
-	var result_map map[string][]*storage.ResultStatsForNotify = make(map[string][]*storage.ResultStatsForNotify)
-	for _, v := range s {
-		if _, ok := result_map[v.AppAlias]; !ok {
-			result_map[v.AppAlias] = make([]*storage.ResultStatsForNotify, 0)
-		}
-		result_map[v.AppAlias] = append(result_map[v.AppAlias], v)
-	}
+	// loop through app_alias_list, and prepare print msg
 	var t_msg string
 	t_msg = "APP:"
-	for app_alias, v_1 := range result_map {
+	for _, app_stats := range s {
+		app_alias := app_stats.AppAlias
+		users_stats_slice := app_stats.UsersStats
 		t_msg = fmt.Sprintf("%v\n    -  %v", t_msg, app_alias)
-		for _, v := range v_1 {
+		for _, v := range users_stats_slice {
 			t_msg = fmt.Sprintf("%v\n        -  %v", t_msg, v.UserAlias)
 		}
 	}
@@ -1409,7 +1413,7 @@ func showBoundUsersHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 func statHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	tg_id := update.Message.Chat.ID
 	// get user's config
-	results, e := storage.GetStatsByTgIDWithAlias(tg_id)
+	results, e := storage.GetAppsStatsByTgId(tg_id)
 	if e != nil {
 		logger.Errorf("<StatHandler> failed to get user's config by id %v, failed with: %v\n", tg_id, e.Error())
 		b.SendMessage(ctx, &bot.SendMessageParams{
@@ -1430,7 +1434,7 @@ func statAllHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		return
 	}
 	// get all OpStats
-	results, e := storage.GetAllStatsWithAlias()
+	results, e := storage.GetAllAppsStats()
 	if e != nil {
 		logger.Errorf("<StatHandler> failed to get user's config by id %v, failed with: %v\n", tg_id, e.Error())
 		b.SendMessage(ctx, &bot.SendMessageParams{
@@ -1442,8 +1446,9 @@ func statAllHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	handleSendStats(ctx, b, tg_id, results)
 }
 
-// handle send stats to user(tg_id)
-func handleSendStats(ctx context.Context, b *bot.Bot, tg_id int64, results []*storage.ResultStatsForNotify) {
+// handle send stats to user - tg_id
+// print msgs include app alias and user alias in order
+func handleSendStats(ctx context.Context, b *bot.Bot, tg_id int64, results []*storage.AppsStats) {
 	if len(results) == 0 {
 		logger.Debugf("<StatHandler> no account bound yet for %v\n", tg_id)
 		b.SendMessage(ctx, &bot.SendMessageParams{
@@ -1452,32 +1457,25 @@ func handleSendStats(ctx context.Context, b *bot.Bot, tg_id int64, results []*st
 		})
 		return
 	}
-	var results_map map[string]map[string][]*storage.ResultStatsForNotify = make(map[string]map[string][]*storage.ResultStatsForNotify)
-	for _, v := range results {
-		if results_map[v.AppAlias] == nil {
-			results_map[v.AppAlias] = make(map[string][]*storage.ResultStatsForNotify, 0)
-		}
-		if results_map[v.AppAlias][v.UserAlias] == nil {
-			results_map[v.AppAlias][v.UserAlias] = make([]*storage.ResultStatsForNotify, 0)
-		}
-		results_map[v.AppAlias][v.UserAlias] = append(results_map[v.AppAlias][v.UserAlias], v)
-	}
 	t_msg_builder := strings.Builder{}
 	t_msg_builder.WriteString("Statistics:")
-	for app_alias, v_1 := range results_map {
+	for _, app_stats := range results {
+		user_stats_slice := app_stats.UsersStats
+		app_alias := app_stats.AppAlias
 		t_t_msg := fmt.Sprintf("    -  %v", app_alias)
 		t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
-		for user_alias, v_2 := range v_1 {
+		for _, user_stats := range user_stats_slice {
+			user_alias := user_stats.UserAlias
+			op_stats_slice := user_stats.OpsStats
 			t_t_msg := fmt.Sprintf("        -  %v", user_alias)
 			t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
-			for _, v := range v_2 {
+			for _, v := range op_stats_slice {
 				t_time_str := utils.GetTimeString(v.LatestTime)
 				t_t_msg := fmt.Sprintf("            -  %v: %v(s)/%v(f) - %v", v.OpAlias, v.Success, v.Failure, t_time_str)
 				t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
 			}
 		}
 	}
-
 	t_msg := t_msg_builder.String()
 	t_msg_builder.Reset()
 	b.SendMessage(ctx, &bot.SendMessageParams{

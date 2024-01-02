@@ -17,19 +17,22 @@ import (
 
 func NotifyStats() {
 	// get all Stats
-	results, e := storage.GetAllStatsWithAlias()
+	tg_list, e := storage.GetAllTgId()
 	if e != nil {
-		logger.Errorf("<StatHandler> failed to get user's config, failed with: %v\n", e.Error())
+		logger.Errorf("<NotifyStats> failed to get tg_id from table users, failed with: %v\n", e.Error())
 		return
 	}
-	// loop and re-group by TgId
-	tgId_mapping := make(map[int64][]*storage.ResultStatsForNotify, 0)
-	for _, r := range results {
-		tgId_mapping[r.TgId] = append(tgId_mapping[r.TgId], r)
+	if len(tg_list) == 0 {
+		return
 	}
 	// loop and send stats
-	for tgId, rs := range tgId_mapping {
-		handleSendStats(context.Background(), botTelegram, tgId, rs)
+	for _, tg_id := range tg_list {
+		stats, e := storage.GetAppsStatsByTgId(tg_id)
+		if e != nil {
+			logger.Errorf("<NotifyStats> failed to perform storage.GetAppsStatsByTgId by tg_id %v, failed with: %v\n", tg_id, e.Error())
+			continue
+		}
+		handleSendStats(context.Background(), botTelegram, tg_id, stats)
 	}
 }
 

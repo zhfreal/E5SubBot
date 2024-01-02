@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/zhfreal/E5SubBot/config"
@@ -94,7 +95,7 @@ type AppConfigStat struct {
 }
 
 // just for stat notification
-type ResultStatsForNotify struct {
+type StatsFromSelect struct {
 	AppAlias   string `gorm:"column:app_alias;not null"`
 	UserAlias  string `gorm:"column:user_alias;not null"`
 	OpAlias    string `gorm:"column:op_alias;not null"`
@@ -102,6 +103,80 @@ type ResultStatsForNotify struct {
 	Success    int    `gorm:"column:success;not null"`
 	Failure    int    `gorm:"column:failure;not null"`
 	LatestTime int64  `gorm:"column:last_time"`
+}
+
+type AppsStats struct {
+	AppAlias   string
+	UsersStats []*UsersStatsData
+}
+
+type UsersStatsData struct {
+	UserAlias string
+	OpsStats  []*BasicOpsStats
+}
+
+type BasicOpsStats struct {
+	OpAlias    string
+	TgId       int64
+	Success    int
+	Failure    int
+	LatestTime int64
+}
+
+func GetAppsStats(s []*StatsFromSelect) []*AppsStats {
+	t_apps := make([]*AppsStats, 0)
+	result_map := make(map[string]map[string]map[string][]*BasicOpsStats)
+	for _, result := range s {
+		app_alias := result.AppAlias
+		user_alias := result.UserAlias
+		op_alias := result.OpAlias
+		if result_map[app_alias] == nil {
+			result_map[app_alias] = make(map[string]map[string][]*BasicOpsStats)
+		}
+		if result_map[app_alias][user_alias] == nil {
+			result_map[app_alias][user_alias] = make(map[string][]*BasicOpsStats)
+		}
+		if result_map[app_alias][user_alias][op_alias] == nil {
+			result_map[app_alias][user_alias][op_alias] = []*BasicOpsStats{}
+		}
+		result_map[app_alias][user_alias][op_alias] = append(result_map[app_alias][user_alias][op_alias], &BasicOpsStats{
+			OpAlias:    op_alias,
+			TgId:       result.TgId,
+			Success:    result.Success,
+			Failure:    result.Failure,
+			LatestTime: result.LatestTime,
+		})
+
+	}
+	for k1, v1 := range result_map {
+		t_app := &AppsStats{
+			AppAlias: k1,
+		}
+		for k2, v2 := range v1 {
+			t_user := &UsersStatsData{
+				UserAlias: k2,
+				OpsStats:  []*BasicOpsStats{},
+			}
+			for _, v3 := range v2 {
+				t_user.OpsStats = append(t_user.OpsStats, v3...)
+				sort.Slice(t_user.OpsStats, func(i, j int) bool {
+					if t_user.OpsStats[i].OpAlias == t_user.OpsStats[j].OpAlias {
+						return t_user.OpsStats[i].TgId < t_user.OpsStats[j].TgId
+					}
+					return t_user.OpsStats[i].OpAlias < t_user.OpsStats[j].OpAlias
+				})
+			}
+			t_app.UsersStats = append(t_app.UsersStats, t_user)
+			sort.Slice(t_app.UsersStats, func(i, j int) bool {
+				return t_app.UsersStats[i].UserAlias < t_app.UsersStats[j].UserAlias
+			})
+		}
+		t_apps = append(t_apps, t_app)
+	}
+	sort.Slice(t_apps, func(i, j int) bool {
+		return t_apps[i].AppAlias < t_apps[j].AppAlias
+	})
+	return t_apps
 }
 
 // ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -365,6 +440,14 @@ func GetUsersByID(id uint) (*Users, error) {
 		return nil, err
 	}
 	return &config, err
+}
+
+func GetAllTgId() ([]int64, error) {
+	var tg_ids []int64
+	err := DB.Table(Table_Users).
+		Select("distinct tg_id").
+		Find(&tg_ids).Error
+	return tg_ids, err
 }
 
 func GetUsersByAppIDAndMsID(app_id, ms_id uint) (*Users, error) {
@@ -704,8 +787,8 @@ func GetStatsByUserID(id uint) ([]*Stats, error) {
 	return ops, e
 }
 
-func GetStatsByTgIDWithAlias(tg_id int64) ([]*ResultStatsForNotify, error) {
-	result := make([]*ResultStatsForNotify, 0)
+func GetAppsStatsByTgId(tg_id int64) ([]*AppsStats, error) {
+	tmp := make([]*StatsFromSelect, 0)
 	select_str := fmt.Sprintf("select %v.alias as app_alias, %v.ms_username as user_alias, %v.alias as op_alias, %v.tg_id, %v.success, %v.failure, %v.last_time",
 		Table_APPs, Table_Users, Table_Op, Table_Users, Table_Stats, Table_Stats, Table_Stats)
 	select_str = fmt.Sprintf("%v from %v, %v, %v, %v", select_str, Table_APPs, Table_Users, Table_Op, Table_Stats)
@@ -714,12 +797,13 @@ func GetStatsByTgIDWithAlias(tg_id int64) ([]*ResultStatsForNotify, error) {
 	select_str = fmt.Sprintf("%s and %s.deleted_at IS NULL and %s.deleted_at IS NULL and %s.deleted_at IS NULL and %s.deleted_at IS NULL",
 		select_str, Table_APPs, Table_Users, Table_Stats, Table_Op)
 	e := DB.Raw(select_str).
-		Scan(&result).Error
+		Scan(&tmp).Error
+	result := GetAppsStats(tmp)
 	return result, e
 }
 
-func GetAllStatsWithAlias() ([]*ResultStatsForNotify, error) {
-	result := make([]*ResultStatsForNotify, 0)
+func GetAllAppsStats() ([]*AppsStats, error) {
+	tmp := make([]*StatsFromSelect, 0)
 	select_str := fmt.Sprintf("select %v.alias as app_alias, %v.ms_username as user_alias, %v.alias as op_alias, %v.tg_id, %v.success, %v.failure, %v.last_time",
 		Table_APPs, Table_Users, Table_Op, Table_Users, Table_Stats, Table_Stats, Table_Stats)
 	select_str = fmt.Sprintf("%v from %v, %v, %v, %v", select_str, Table_APPs, Table_Users, Table_Op, Table_Stats)
@@ -728,7 +812,8 @@ func GetAllStatsWithAlias() ([]*ResultStatsForNotify, error) {
 	select_str = fmt.Sprintf("%s and %s.deleted_at IS NULL and %s.deleted_at IS NULL and %s.deleted_at IS NULL and %s.deleted_at IS NULL",
 		select_str, Table_APPs, Table_Users, Table_Stats, Table_Op)
 	e := DB.Raw(select_str).
-		Scan(&result).Error
+		Scan(&tmp).Error
+	result := GetAppsStats(tmp)
 	return result, e
 }
 
