@@ -175,7 +175,7 @@ func WorkingOnMsFromChan(in chan Args, out chan ApiResult, done chan bool, wg *s
 				return
 			}
 		default:
-			time.Sleep(100 * time.Microsecond)
+			time.Sleep(APIInterval)
 		}
 	}
 }

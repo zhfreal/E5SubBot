@@ -57,7 +57,7 @@ func GetDeviceCode(ctx context.Context, client_id string) (*TokenCache, error) {
 // we get user info from https://graph.microsoft.com/v1.0/me, to get alias and mail address
 func CheckAuthStatusOfDeviceCode(ctx context.Context, token_cache *TokenCache) error {
 	for {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(APIInterval)
 		b, e := authDeviceCode(Tenant, token_cache.ClientID, token_cache.DeviceCodeDev)
 		if e != nil {
 			continue

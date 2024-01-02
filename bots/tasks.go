@@ -158,7 +158,7 @@ func PerformTasks() {
 			if t_count >= tasks_count {
 				break
 			}
-			time.Sleep(500 * time.Microsecond)
+			// time.Sleep(500 * time.Microsecond)
 		}
 		wg.Done()
 	}()
