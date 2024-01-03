@@ -7,17 +7,19 @@ import (
 )
 
 const (
-	Tenant      string        = "organizations"
-	AuthBase    string        = "https://login.microsoftonline.com"
-	OAuth       string        = "oauth2/v2.0"
-	OAuthDC     string        = "devicecode"
-	OAuthToken  string        = "token"
-	GraphUrl    string        = "https://graph.microsoft.com"
-	GraphVer    string        = "v1.0"
-	OpGet       string        = "GET"
-	OpPost      string        = "POST"
-	OpDelete    string        = "DELETE"
-	APIInterval time.Duration = 50 * time.Millisecond // in milliseconds
+	Tenant         string        = "organizations"
+	AuthBase       string        = "https://login.microsoftonline.com"
+	OAuth          string        = "oauth2/v2.0"
+	OAuthDC        string        = "devicecode"
+	OAuthToken     string        = "token"
+	GraphUrl       string        = "https://graph.microsoft.com"
+	GraphVer       string        = "v1.0"
+	OpGet          string        = "GET"
+	OpPost         string        = "POST"
+	OpDelete       string        = "DELETE"
+	APIInterval    time.Duration = 50 * time.Millisecond // in milliseconds
+	ReadMailsCount int           = 100
+	ODataNextLink  string        = "@odata.nextLink"
 	// const_timeout_request_device_code        = 10 // timeout in seconds for request device code
 )
 

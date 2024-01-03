@@ -69,110 +69,110 @@ func readOneMail(access_token, folder_id, msg_id, proxy string) (int, int) {
 //	   -- https://graph.microsoft.com/v1.0/me/mailFolders/{id}/messages/{msg_id}; /me/mailFolders/{id}/messages/{id};
 //	<access_token> can't be empty
 //	<folder_id> and <proxy> can be empty
-func getOutlookMailsNew(access_token, folder_id, proxy string) (int, int) {
+func readMailsFromFolder(access_token, folder_id string, amount int, proxy string) (int, int) {
 	var content string
 	var err error
 	var s, f int = 0, 0
 	t_url, t_err := getGraphApiUrl(query_string, getMsgFoldersSubPath(folder_id, ""))
 	if t_err != nil {
-		f += 1
 		return s, f
 	}
-	time.Sleep(APIInterval)
-	content, err = performGraphApiGet(access_token, t_url, proxy)
-	if err != nil {
-		f += 1
-		return s, f
-	}
-	s += 1
-	// invalid response
-	if gjson.Get(content, "@odata\\.context").String() == "" {
-		return s, f
-	}
-	results := gjson.GetMany(content, "value.#.id", "value.#.isRead")
-	// if len(results) != 2 {
-	// 	return s, f
-	// }
-	id_slice := results[0].Array()
-	read_slice := results[1].Array()
-	for i := 0; i < len(id_slice); i++ {
-		t_msg_id := id_slice[i].String()
-		t_is_read := read_slice[i].Bool()
-		// does not read yet
-		if !t_is_read {
-			// read message after 100 milliseconds
-			time.Sleep(APIInterval)
-			t_s, t_f := readOneMail(access_token, folder_id, t_msg_id, proxy)
-			s += t_s
-			f += t_f
+	t_fetched := 0
+	for t_fetched < amount {
+		content, err = performGraphApiGet(access_token, t_url, proxy)
+		if err != nil {
+			f += 1
+			return s, f
 		}
+		s += 1
+		// invalid response
+		if gjson.Get(content, "@odata\\.context").String() == "" {
+			return s, f
+		}
+		results := gjson.GetMany(content, "value.#.id", "value.#.isRead")
+		// if len(results) != 2 {
+		// 	return s, f
+		// }
+		id_slice := results[0].Array()
+		read_slice := results[1].Array()
+		for i := 0; i < len(id_slice); i++ {
+			t_msg_id := id_slice[i].String()
+			t_is_read := read_slice[i].Bool()
+			// does not read yet
+			if !t_is_read {
+				// read message after 100 milliseconds
+				time.Sleep(APIInterval)
+				t_s, t_f := readOneMail(access_token, folder_id, t_msg_id, proxy)
+				s += t_s
+				f += t_f
+			}
+		}
+		t_fetched += len(id_slice)
+		t_next_url := gjson.Get(content, ODataNextLink).String()
+		// no more results
+		if len(t_next_url) == 0 {
+			break
+		}
+		t_url = t_next_url
+		time.Sleep(APIInterval)
 	}
 	return s, f
 }
 
 // get all mailFolders and their child folders, and their mails
-func loopAllMailFolders(access_token, proxy string) (int, int) {
+func readMailsFromAllFolders(access_token, proxy string) (int, int) {
 	var content string
 	var err error
 	var s, f int = 0, 0
-	url, _ := getGraphApiUrl(map[string]string{}, "/me/mailFolders")
-	content, err = performGraphApiGet(access_token, url, proxy)
+	t_folder_result, t_s, t_f, err := getAllMailFolders(access_token, proxy)
+	s += t_s
+	f += t_f
 	if err != nil {
-		f += 1
 		return s, f
 	}
-	// invalid response
-	if gjson.Get(content, "@odata\\.context").String() == "" {
-		f += 1
-		return s, f
-	}
-	s += 1
 	// has child folders
-	result := gjson.Get(content, "value")
 	folders := make(map[string]map[string]gjson.Result)
-	if result.IsArray() {
-		t_result_slice := result.Array()
-		t_id_list := make([]string, 0)
-		for _, r := range t_result_slice {
-			key := r.Get("id").String()
-			v := r.Map()
-			folders[key] = v
-			t_id_list = append(t_id_list, key)
-		}
-		// loop to get all mails and sub folders
-		for i := 0; i < len(t_id_list); i++ {
+	t_id_list := make([]string, 0)
+	for _, r := range t_folder_result {
+		key := r.Get("id").String()
+		v := r.Map()
+		folders[key] = v
+		t_id_list = append(t_id_list, key)
+	}
+	// loop to get all mails and sub folders
+	for i := 0; i < len(t_id_list); i++ {
+		time.Sleep(APIInterval)
+		t_id := t_id_list[i]
+		t_s, t_f := readMailsFromFolder(access_token, t_id, ReadMailsCount, proxy)
+		s += t_s
+		f += t_f
+		// has child folders
+		if folders[t_id]["childFolders"].Int() > 0 {
+			// get child folders
 			time.Sleep(APIInterval)
-			t_id := t_id_list[i]
-			t_s, t_f := getOutlookMailsNew(access_token, t_id, proxy)
-			s += t_s
-			f += t_f
-			// has child folders
-			if folders[t_id]["childFolders"].Int() > 0 {
-				// get child folders
-				time.Sleep(APIInterval)
-				url, _ = getGraphApiUrl(map[string]string{}, "/me/mailFolders", t_id, "/childFolders")
-				content, err = performGraphApiGet(access_token, url, proxy)
-				if err != nil {
-					f += 1
-					return s, f
-				}
-				s += 1
-				result := gjson.Get(content, "value")
-				if result.IsArray() {
-					t_result_slice := result.Array()
-					for _, r := range t_result_slice {
-						key := r.Get("id").String()
-						// child folders didn't add into to folders
-						if _, ok := folders[key]; !ok {
-							v := r.Map()
-							folders[key] = v
-							t_id_list = append(t_id_list, key)
-						}
+			url, _ := getGraphApiUrl(map[string]string{}, "/me/mailFolders", t_id, "/childFolders")
+			content, err = performGraphApiGet(access_token, url, proxy)
+			if err != nil {
+				f += 1
+				return s, f
+			}
+			s += 1
+			result := gjson.Get(content, "value")
+			if result.IsArray() {
+				t_result_slice := result.Array()
+				for _, r := range t_result_slice {
+					key := r.Get("id").String()
+					// child folders didn't add into to folders
+					if _, ok := folders[key]; !ok {
+						v := r.Map()
+						folders[key] = v
+						t_id_list = append(t_id_list, key)
 					}
 				}
 			}
 		}
 	}
+
 	return s, f
 }
 
@@ -187,86 +187,224 @@ func deleteOneEmail(access_token, folder_id, msg_id, proxy string) (bool, error)
 }
 
 // graph REST API for search: https://graph.microsoft.com/v1.0/search/query
-func searchEmailByKeyword(access_token, keywords string, from, size int, proxy string) (string, error) {
+func searchEmailByKeyword(access_token, keyword string, from, size int, proxy string) (string, error) {
 	var content string
 	var err error
 	t_url, err := getGraphApiUrl(map[string]string{}, "/search/query")
 	if err != nil {
 		return "", fmt.Errorf("fail to generate url, failed with %v", err.Error())
 	}
-	content, err = performGraphApiPost(access_token, t_url, NewRequestsDataString(keywords, from, size), proxy)
+	content, err = performGraphApiPost(access_token, t_url, NewRequestsDataString(keyword, from, size), proxy)
 	if err != nil {
 		return "", fmt.Errorf("fail to search email, failed with %v", err.Error())
 	}
 	return content, nil
 }
 
-func deleteOutlookMails(access_token, keywords string, quantity_for_delete int, proxy string) (int, int) {
-	var ok bool
+// read filtered mails by a keyword in specific folder with it's folder_id
+func readFilteredMails(folder_id, access_token, keyword string, amount int, proxy string) ([]gjson.Result, int, int, error) {
+	var content string
+	var err error
 	var s, f int = 0, 0
-	t_from := from
-	t_deleted := 0
-OUTER_LOOP:
-	for {
-		content, err := searchEmailByKeyword(access_token, keywords, t_from, size, proxy)
-		// bad request, or network issue or other error, rather than empty search result
+	var t_result_slice []gjson.Result
+	t_filter_string := fmt.Sprintf("contains(body/content,'%v')", keyword)
+	t_url, err := getGraphApiUrl(map[string]string{"filter": t_filter_string}, "me/mailFolders", folder_id, "messages")
+	if err != nil {
+		return t_result_slice, s, f, err
+	}
+	t_fetched := 0
+	for t_fetched < amount {
+		content, err = performGraphApiGet(access_token, t_url, proxy)
 		if err != nil {
 			f += 1
 			break
 		}
-		// get search results in path "content.value[0].hitsContainers[0]" use gjson
-		t_search_content := gjson.Get(content, "value.0.hitsContainers.0").String()
-		// no matched results, return as one successful try
-		if t_search_content == "" {
-			s += 1
+		s += 1
+		t_values := gjson.Get(content, "value")
+		if !t_values.IsArray() {
+			err = fmt.Errorf("invalid response")
 			break
 		}
-		t_hits_string := gjson.Get(t_search_content, "hits").String()
-		// t_total := gjson.Get(t_search_content, "total").Int()
-		t_more_results_available := gjson.Get(t_search_content, "moreResultsAvailable").Bool()
-		// empty search results, return as one successful try
-		if len(t_hits_string) == 0 {
-			s += 1
+		t_values_slice := t_values.Array()
+		t_fetched += len(t_values_slice)
+		t_result_slice = append(t_result_slice, t_values_slice...)
+		t_next_url := gjson.Get(content, ODataNextLink).String()
+		// no more results
+		if len(t_next_url) == 0 {
 			break
 		}
-		t_msg_id_list := gjson.Get(t_hits_string, "#.hitId").Array()
-		t_is_read_list := gjson.Get(t_hits_string, "#.resource.isRead").Array()
-		t_folder_id_list := gjson.Get(t_hits_string, "#.resource.parentFolderId").Array()
-		if len(t_msg_id_list) == 0 || len(t_folder_id_list) == 0 || len(t_is_read_list) == 0 {
-			s += 1
+		t_url = t_next_url
+		time.Sleep(APIInterval)
+	}
+	return t_result_slice, s, f, err
+}
+
+// get all mail folders
+func getAllMailFolders(access_token, proxy string) ([]gjson.Result, int, int, error) {
+	var t_result_slice []gjson.Result
+	var s, f int = 0, 0
+	var err error
+	var content string
+	t_url, _ := getGraphApiUrl(map[string]string{}, "/me/mailFolders")
+	for {
+		content, err = performGraphApiGet(access_token, t_url, proxy)
+		if err != nil {
+			f += 1
 			break
 		}
-		for i := 0; i < len(t_msg_id_list); i++ {
-			t_msg_id := t_msg_id_list[i].String()
-			t_is_read := t_is_read_list[i].Bool()
-			t_folder_id := t_folder_id_list[i].String()
-			if !t_is_read {
-				// read this message
-				time.Sleep(APIInterval)
-				t_s, t_f := readOneMail(access_token, t_folder_id, t_msg_id, proxy)
+		s += 1
+		t_values := gjson.Get(content, "value")
+		if !t_values.IsArray() {
+			err = fmt.Errorf("invalid response")
+			break
+		}
+		t_result_slice = append(t_result_slice, t_values.Array()...)
+		t_next_url := gjson.Get(content, ODataNextLink).String()
+		// no more results
+		if len(t_next_url) == 0 {
+			break
+		}
+		t_url = t_next_url
+	}
+	return t_result_slice, s, f, err
+}
+
+// get the folder_id of "Inbox", "Sent Items", "Drafts"
+func getFolderId(access_token, proxy string) ([]string, int, int, error) {
+	var folder_id_list []string
+	var s, f int = 0, 0
+	t_folder_result, t_s, t_f, err := getAllMailFolders(access_token, proxy)
+	s += t_s
+	f += t_f
+	if err != nil {
+		return folder_id_list, s, f, err
+	}
+	for _, r := range t_folder_result {
+		folder_name := r.Get("displayName").String()
+		folder_id := r.Get("id").String()
+		if folder_name == "Inbox" || folder_name == "Sent Items" || folder_name == "Drafts" {
+			folder_id_list = append(folder_id_list, folder_id)
+		}
+	}
+	return folder_id_list, s, f, nil
+}
+
+// delete specific mails by keywords, each string in keywords will be a condition to query mails to delete
+func deleteOutlookMails(access_token string, keywords []string, quantity_for_delete int, proxy string) (int, int) {
+	var ok bool
+	var s, f int = 0, 0
+	t_deleted := 0
+	// get all folders, get the folder_id of "Inbox", "Sent Items", "Drafts"
+	target_folder_list, t_s, t_f, err := getFolderId(access_token, proxy)
+	s += t_s
+	f += t_f
+	if err != nil || len(target_folder_list) == 0 {
+		return s, f
+	}
+	for _, folder_id := range target_folder_list {
+		// loop keywords, search mails and delete mails
+		for _, t_keywords := range keywords {
+		OUTER_LOOP:
+			for {
+				t_result_list, t_s, t_f, err := readFilteredMails(folder_id, access_token, t_keywords, quantity_for_delete, proxy)
 				s += t_s
 				f += t_f
+				// bad request, or network issue or other error, rather than empty search result
+				if err != nil {
+					break
+				}
+				if len(t_result_list) == 0 {
+					break
+				}
+
+				for _, r := range t_result_list {
+					t_msg_id := r.Get("id").String()
+					t_is_read := r.Get("isRead").Bool()
+					t_folder_id := r.Get("parentFolderId").String()
+					if !t_is_read {
+						// read this message
+						time.Sleep(APIInterval)
+						t_s, t_f := readOneMail(access_token, t_folder_id, t_msg_id, proxy)
+						s += t_s
+						f += t_f
+					}
+					// do deleteOneEmail
+					time.Sleep(APIInterval)
+					ok, err = deleteOneEmail(access_token, t_folder_id, t_msg_id, proxy)
+					if err != nil || !ok {
+						// fail to delete
+						f += 1
+					} else {
+						// successfully delete
+						s += 1
+					}
+					t_deleted += 1 // add 1 into t_deleted, mean we try to delete one mail
+					if t_deleted >= quantity_for_delete {
+						break OUTER_LOOP
+					}
+				}
 			}
-			// do deleteOneEmail
-			time.Sleep(APIInterval)
-			ok, err = deleteOneEmail(access_token, t_folder_id, t_msg_id, proxy)
-			if err != nil || !ok {
-				// fail to delete
+		}
+	}
+
+	return s, f
+}
+
+// use https://graph.microsoft.com/v1.0/search/query
+func searchAndLoopMails(access_token string, keywords []string, fetch_quantity int, proxy string) (int, int) {
+	var s, f int = 0, 0
+	var fetched int
+	t_from := from
+	// loop keywords, search mails and delete mails
+	for _, t_keywords := range keywords {
+		for {
+			content, err := searchEmailByKeyword(access_token, t_keywords, t_from, size, proxy)
+			// bad request, or network issue or other error, rather than empty search result
+			if err != nil {
 				f += 1
-			} else {
-				// successfully delete
+				break
+			}
+			// get search results in path "content.value[0].hitsContainers[0]" use gjson
+			t_search_content := gjson.Get(content, "value.0.hitsContainers.0").String()
+			// no matched results, return as one successful try
+			if t_search_content == "" {
 				s += 1
+				break
 			}
-			t_deleted += 1 // add 1 into t_deleted, mean we try to delete one mail
-			if t_deleted >= quantity_for_delete {
-				break OUTER_LOOP
+			t_hits_string := gjson.Get(t_search_content, "hits").String()
+			// t_total := gjson.Get(t_search_content, "total").Int()
+			t_more_results_available := gjson.Get(t_search_content, "moreResultsAvailable").Bool()
+			// empty search results, return as one successful try
+			if len(t_hits_string) == 0 {
+				s += 1
+				break
 			}
+			t_msg_id_list := gjson.Get(t_hits_string, "#.hitId").Array()
+			t_is_read_list := gjson.Get(t_hits_string, "#.resource.isRead").Array()
+			t_folder_id_list := gjson.Get(t_hits_string, "#.resource.parentFolderId").Array()
+			if len(t_msg_id_list) == 0 || len(t_folder_id_list) == 0 || len(t_is_read_list) == 0 {
+				s += 1
+				break
+			}
+			for i := 0; i < len(t_msg_id_list); i++ {
+				t_msg_id := t_msg_id_list[i].String()
+				t_is_read := t_is_read_list[i].Bool()
+				t_folder_id := t_folder_id_list[i].String()
+				if !t_is_read {
+					// read this message if it is not read yet
+					time.Sleep(APIInterval)
+					t_s, t_f := readOneMail(access_token, t_folder_id, t_msg_id, proxy)
+					s += t_s
+					f += t_f
+				}
+			}
+			fetched += len(t_msg_id_list)
+			// no more results available or fetched enough mails, break
+			if !t_more_results_available || fetched >= fetch_quantity {
+				break
+			}
+			from += len(t_msg_id_list)
 		}
-		// no more results available, break
-		if !t_more_results_available {
-			break
-		}
-		from += len(t_msg_id_list)
 	}
 	return s, f
 }
@@ -285,21 +423,24 @@ func getMailFoldersDelta(access_token, proxy string) (int, int) {
 func WorkingOnMails(id uint, access_token string, out chan ApiResult, proxy string) {
 	var s, f int = 0, 0
 	t_start_at := time.Now()
-	t_s, t_f := getOutlookMailsNew(access_token, "", proxy)
+	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy)
 	s += t_s
 	f += t_f
 	time.Sleep(APIInterval)
-	t_s, t_f = loopAllMailFolders(access_token, proxy)
+	t_s, t_f = readMailsFromAllFolders(access_token, proxy)
 	s += t_s
 	f += t_f
 	time.Sleep(APIInterval)
 	t_s, t_f = getMailFoldersDelta(access_token, proxy)
 	s += t_s
 	f += t_f
+	t_s, t_f = searchAndLoopMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
+	s += t_s
+	f += t_f
 	// do deleteOutlookMails just according the config file
 	if config.MailAutoDeleteEnabled {
 		time.Sleep(APIInterval)
-		t_s, t_f = deleteOutlookMails(access_token, config.MailAutoDeleteKeyWord, config.MailAutoDeleteQuantity, proxy)
+		t_s, t_f = deleteOutlookMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
 		s += t_s
 		f += t_f
 	}
@@ -318,7 +459,7 @@ func WorkingOnMails(id uint, access_token string, out chan ApiResult, proxy stri
 
 func DoListAllMails(id uint, access_token string, out chan ApiResult, proxy string) {
 	t_start_at := time.Now()
-	t_s, t_f := getOutlookMailsNew(access_token, "", proxy)
+	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy)
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- ApiResult{
@@ -334,7 +475,7 @@ func DoListAllMails(id uint, access_token string, out chan ApiResult, proxy stri
 
 func DoListAllMailFolders(id uint, access_token string, out chan ApiResult, proxy string) {
 	t_start_at := time.Now()
-	t_s, t_f := loopAllMailFolders(access_token, proxy)
+	t_s, t_f := readMailsFromAllFolders(access_token, proxy)
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- ApiResult{
@@ -350,7 +491,7 @@ func DoListAllMailFolders(id uint, access_token string, out chan ApiResult, prox
 
 func DoMailDeletion(id uint, access_token string, out chan ApiResult, proxy string) {
 	t_start_at := time.Now()
-	t_s, t_f := deleteOutlookMails(access_token, config.MailAutoDeleteKeyWord, config.MailAutoDeleteQuantity, proxy)
+	t_s, t_f := deleteOutlookMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- ApiResult{

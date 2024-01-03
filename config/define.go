@@ -29,7 +29,7 @@ var (
 	// ms.mail.auto-delete.enabled
 	MailAutoDeleteEnabled bool = true
 	// ms.mail.auto-delete.keyword
-	MailAutoDeleteKeyWord string = "George Best quote"
+	MailAutoDeleteKeyWords []string = []string{"George Best quote"}
 	// ms.mail.auto-delete.quantity
 	MailAutoDeleteQuantity int = 20
 	// TelegramBot        *bot.Bot

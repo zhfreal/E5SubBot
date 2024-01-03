@@ -1,6 +1,7 @@
 package bots
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -9,17 +10,6 @@ import (
 	"github.com/go-telegram/bot"
 	"github.com/zhfreal/E5SubBot/microsoft"
 	"github.com/zhfreal/E5SubBot/storage"
-)
-
-const (
-	logo = `
-  ______ _____ _____       _     ____        _   
- |  ____| ____/ ____|     | |   |  _ \      | |  
- | |__  | |__| (___  _   _| |__ | |_) | ___ | |_ 
- |  __| |___ \\___ \| | | | '_ \|  _ < / _ \| __|
- | |____ ___) |___) | |_| | |_) | |_) | (_) | |_ 
- |______|____/_____/ \__,_|_.__/|____/ \___/ \__|
-`
 )
 
 const (
@@ -620,7 +610,7 @@ func GetToken(uc *storage.Users) (string, bool, error) {
 	expiresAt := time.Unix(t_expire_at, 0).Add(-time.Duration(RefreshTokenBefore) * time.Second)
 	t_time_now := time.Now()
 	if expiresAt.Before(t_time_now) || len(uc.RefreshToken) == 0 {
-		access_token, refresh_token, expire_in, err = microsoft.RefreshToken(uc.MsId, uc.RefreshToken)
+		access_token, refresh_token, expire_in, err = microsoft.RefreshToken(context.Background(), uc.MsId, uc.RefreshToken)
 		if err != nil {
 			// failed to refresh
 			failed_to_refreshed = true
@@ -669,7 +659,7 @@ func ShowToken(account string) {
 		expiresAt := time.Unix(t_expire_at, 0)
 		t_time_now := time.Now()
 		if expiresAt.Before(t_time_now) || len(uc.RefreshToken) == 0 {
-			access_token, refresh_token, expire_in, err = microsoft.RefreshToken(uc.MsId, uc.RefreshToken)
+			access_token, refresh_token, expire_in, err = microsoft.RefreshToken(context.Background(), uc.MsId, uc.RefreshToken)
 			if err != nil {
 				continue
 			} else {

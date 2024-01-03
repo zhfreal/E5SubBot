@@ -30,7 +30,7 @@ func getAuthUrl(tenant string) string {
 func getMsgFoldersSubPath(folder_id, msg_id string) string {
 	var sub_path string = "/me"
 	if len(folder_id) > 0 {
-		sub_path = fmt.Sprintf("%v/mailFolders/%v", sub_path, msg_id)
+		sub_path = fmt.Sprintf("%v/mailFolders/%v", sub_path, folder_id)
 	}
 	sub_path = fmt.Sprintf("%v/messages", sub_path)
 	if len(msg_id) > 0 {
@@ -119,7 +119,7 @@ func performGraphApiDelete(access_token, url_str, proxy string) (bool, error) {
 	if err != nil {
 		return ok, err
 	}
-	if resp.StatusCode != 204 {
+	if resp.StatusCode != 204 && resp.StatusCode != 404 {
 		defer resp.Body.Close()
 		t_b, _ := io.ReadAll(resp.Body)
 		err = fmt.Errorf("%v, %v", resp.Status, string(t_b))
@@ -152,6 +152,8 @@ func performGraphApi(action, access_token, url_str, data, proxy string) (*http.R
 	// set Content-Type if we post data
 	if action == OpPost {
 		req.Header.Set("Content-Type", "application/json")
+	} else {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 	// Create a new HTTP client and send the request
 	client := &http.Client{}

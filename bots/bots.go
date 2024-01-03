@@ -6,28 +6,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	"github.com/go-telegram/bot"
 	"github.com/zhfreal/E5SubBot/config"
-	"github.com/zhfreal/E5SubBot/logger"
-	"github.com/zhfreal/E5SubBot/storage"
 )
 
-func Start(conf_file string, show_token bool, account string) {
+func Start() {
 	var err error
-
-	config.Init(conf_file)
-	logger.Init(config.LogIntoFile, config.LogDir, config.LogFile, config.LogLevel, config.MaxSize, config.MaxBackups, config.MaxAge)
-	// storage init must be done after logger init, because storage.Init() would using logger
-	storage.Init()
-	// self Init
-	Init()
-	if show_token {
-		ShowToken(account)
-		return
-	}
-
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 	opts := []bot.Option{
@@ -71,12 +58,14 @@ func Start(conf_file string, show_token bool, account string) {
 	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDStat, bot.MatchTypeExact, statHandler)
 	// for admin
 	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDStatAll, bot.MatchTypeExact, statAllHandler)
+
+	// to void potential error, we need run botTelegram.Start() in goroutine
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go botTelegram.Start(ctx)
 	// init background task
-	// this must be called after bot initialized
-	InitBackgroundTasks()
-	// this is for test only
-	// PerformTasks()
-	botTelegram.Start(ctx)
-	// show logo after boot start
-	fmt.Print(logo)
+	// this must be called after bot start
+	// InitBackgroundTasks()
+	PerformTasks()
+	wg.Wait()
 }

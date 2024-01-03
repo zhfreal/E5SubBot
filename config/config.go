@@ -64,7 +64,8 @@ func Init(file_path string) {
 	viper.SetDefault("bindmax", 5)
 	viper.SetDefault("goroutine", 10)
 	viper.SetDefault("ms.mail.auto-delete.enabled", MailAutoDeleteEnabled)
-	viper.SetDefault("ms.mail.auto-delete.keyword", MailAutoDeleteKeyWord)
+	viper.SetDefault("ms.mail.auto-delete.keyword", MailAutoDeleteKeyWords[0])
+	viper.SetDefault("ms.mail.auto-delete.keywords", MailAutoDeleteKeyWords)
 	viper.SetDefault("ms.mail.auto-delete.quantity", MailAutoDeleteQuantity)
 	// logging
 	viper.SetDefault("log.log-into-file", LogIntoFile)
@@ -81,12 +82,7 @@ func Init(file_path string) {
 
 	// read from config.yaml
 	// mail deletion settings
-	// ms.mail.auto-delete.enabled
-	MailAutoDeleteEnabled = viper.GetBool("ms.mail.auto-delete.enabled")
-	// ms.mail.auto-delete.keyword
-	MailAutoDeleteKeyWord = viper.GetString("ms.mail.auto-delete.keyword")
-	// ms.mail.auto-delete.quantity
-	MailAutoDeleteQuantity = viper.GetInt("ms.mail.auto-delete.quantity")
+	readMsMailAutoDeleteSection()
 
 	// logging settings
 	LogIntoFile = viper.GetBool("log.log-into-file")
@@ -128,8 +124,8 @@ func Init(file_path string) {
 		MaxErrTimes = viper.GetInt("errlimit")
 		Notice = viper.GetString("notice")
 		Admins = getAdmins()
-		// reload ms.mail.keyword
-		MailAutoDeleteKeyWord = viper.GetString("ms.mail.keyword")
+		// reload ms.mail.auto-delete
+		readMsMailAutoDeleteSection()
 	})
 }
 
@@ -141,4 +137,28 @@ func getAdmins() []int64 {
 		result = append(result, id)
 	}
 	return result
+}
+
+func readMsMailAutoDeleteSection() {
+	// ms.mail.auto-delete.enabled
+	MailAutoDeleteEnabled = viper.GetBool("ms.mail.auto-delete.enabled")
+	// ms.mail.auto-delete.keywords
+	MailAutoDeleteKeyWords = viper.GetStringSlice("ms.mail.auto-delete.keywords")
+	// ms.mail.auto-delete.keyword
+	MailAutoDeleteKeyWords = append(MailAutoDeleteKeyWords, viper.GetString("ms.mail.auto-delete.keyword"))
+	// ms.mail.auto-delete.quantity
+	MailAutoDeleteQuantity = viper.GetInt("ms.mail.auto-delete.quantity")
+	// make a map to remove duplicates item in MailAutoDeleteKeyWords
+	// make sure each item in MailAutoDeleteKeyWords is trim and not empty
+	MailAutoDeleteKeyWordsMap := make(map[string]bool)
+	for _, v := range MailAutoDeleteKeyWords {
+		v = strings.TrimSpace(v)
+		if len(v) > 0 {
+			MailAutoDeleteKeyWordsMap[v] = true
+		}
+	}
+	MailAutoDeleteKeyWords = make([]string, 0, len(MailAutoDeleteKeyWordsMap))
+	for k := range MailAutoDeleteKeyWordsMap {
+		MailAutoDeleteKeyWords = append(MailAutoDeleteKeyWords, k)
+	}
 }

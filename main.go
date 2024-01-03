@@ -6,6 +6,20 @@ import (
 	"os"
 
 	"github.com/zhfreal/E5SubBot/bots"
+	"github.com/zhfreal/E5SubBot/config"
+	"github.com/zhfreal/E5SubBot/logger"
+	"github.com/zhfreal/E5SubBot/storage"
+)
+
+const (
+	logo = `
+  ______ _____ _____       _     ____        _   
+ |  ____| ____/ ____|     | |   |  _ \      | |  
+ | |__  | |__| (___  _   _| |__ | |_) | ___ | |_ 
+ |  __| |___ \\___ \| | | | '_ \|  _ < / _ \| __|
+ | |____ ___) |___) | |_| | |_) | |_) | (_) | |_ 
+ |______|____/_____/ \__,_|_.__/|____/ \___/ \__|
+`
 )
 
 var (
@@ -46,5 +60,20 @@ func main() {
 		os.Exit(0)
 	}
 
-	bots.Start(conf, show_token, accounts_for_show)
+	// do initialization
+	config.Init(conf)
+	logger.Init(config.LogIntoFile, config.LogDir, config.LogFile, config.LogLevel, config.MaxSize, config.MaxBackups, config.MaxAge)
+	// storage init must be done after logger init, because storage.Init() would using logger
+	storage.Init()
+	// self Init
+	bots.Init()
+	if show_token {
+		bots.ShowToken(accounts_for_show)
+		os.Exit(0)
+	}
+	// this is for test only
+	// PerformTasks()
+	// show logo
+	fmt.Print(logo)
+	bots.Start()
 }

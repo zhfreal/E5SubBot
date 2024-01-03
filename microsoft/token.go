@@ -16,7 +16,7 @@ func GetDeviceCode(ctx context.Context, client_id string) (*TokenCache, error) {
 	// make a cache to store token
 	cache := &TokenCache{ClientID: client_id}
 
-	b, e := getDeviceCode(Tenant, client_id, scope_new)
+	b, e := getDeviceCode(Tenant, client_id, scope_new, ctx)
 	if e != nil {
 		return nil, e
 	}
@@ -58,7 +58,7 @@ func GetDeviceCode(ctx context.Context, client_id string) (*TokenCache, error) {
 func CheckAuthStatusOfDeviceCode(ctx context.Context, token_cache *TokenCache) error {
 	for {
 		time.Sleep(APIInterval)
-		b, e := authDeviceCode(Tenant, token_cache.ClientID, token_cache.DeviceCodeDev)
+		b, e := authDeviceCode(ctx, Tenant, token_cache.ClientID, token_cache.DeviceCodeDev)
 		if e != nil {
 			continue
 		}
@@ -84,7 +84,12 @@ func CheckAuthStatusOfDeviceCode(ctx context.Context, token_cache *TokenCache) e
 			t_err_str := t_error_obj.Error
 			// return error with authorization_pending
 			if t_err_str == "authorization_pending" {
-				continue
+				select {
+				case <-ctx.Done():
+					return nil
+				default:
+					continue
+				}
 			} else if t_err_str == "authorization_declined" || t_err_str == "bad_verification_code" || t_err_str == "expired_token" {
 				// authorization declined or bad verification code or expired token
 				return fmt.Errorf("got error while waiting for user to authenticate this device, failed with: %v", t_err_str)
@@ -99,8 +104,8 @@ func CheckAuthStatusOfDeviceCode(ctx context.Context, token_cache *TokenCache) e
 
 // fresh access token by client_id and refresh token
 // return access_token, refresh_token, expire_id, and error if there is any error.
-func RefreshToken(client_id, refresh string) (string, string, int, error) {
-	t_b, err := refreshToken(Tenant, client_id, refresh, scope_new)
+func RefreshToken(ctx context.Context, client_id, refresh string) (string, string, int, error) {
+	t_b, err := refreshToken(ctx, Tenant, client_id, refresh, scope_new)
 	if err != nil {
 		return "", "", -1, err
 	}
@@ -116,7 +121,7 @@ func RefreshToken(client_id, refresh string) (string, string, int, error) {
 }
 
 // get device code
-func getDeviceCode(tenant, clientID string, scopes []string) ([]byte, error) {
+func getDeviceCode(tenant, clientID string, scopes []string, ctx context.Context) ([]byte, error) {
 	// Create a URL-encoded form with the required parameters
 	form := url.Values{}
 	form.Add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
@@ -124,7 +129,7 @@ func getDeviceCode(tenant, clientID string, scopes []string) ([]byte, error) {
 	form.Add("scope", strings.Join(scopes, " "))
 
 	// Create a new HTTP request with the form as the body
-	req, err := http.NewRequest("POST", getDCReqUrl(tenant), strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", getDCReqUrl(tenant), strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +138,7 @@ func getDeviceCode(tenant, clientID string, scopes []string) ([]byte, error) {
 }
 
 // authenticate by device code
-func authDeviceCode(tenant, clientID, deviceCode string) ([]byte, error) {
+func authDeviceCode(ctx context.Context, tenant, clientID, deviceCode string) ([]byte, error) {
 	// Create a URL-encoded form with the required parameters
 	form := url.Values{}
 	form.Add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
@@ -141,7 +146,7 @@ func authDeviceCode(tenant, clientID, deviceCode string) ([]byte, error) {
 	form.Add("device_code", deviceCode)
 
 	// Create a new HTTP request with the form as the body
-	req, err := http.NewRequest("POST", getTokenUrl(tenant), strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", getTokenUrl(tenant), strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +155,7 @@ func authDeviceCode(tenant, clientID, deviceCode string) ([]byte, error) {
 }
 
 // refresh token
-func refreshToken(tenant, clientID, refreshToken string, scopes []string) ([]byte, error) {
+func refreshToken(ctx context.Context, tenant, clientID, refreshToken string, scopes []string) ([]byte, error) {
 	// Create a URL-encoded form with the required parameters
 	form := url.Values{}
 	form.Add("client_id", clientID)
@@ -164,7 +169,7 @@ func refreshToken(tenant, clientID, refreshToken string, scopes []string) ([]byt
 	form.Add("scope", t_scopes_str)
 
 	// Create a new HTTP request with the form as the body
-	req, err := http.NewRequest("POST", getTokenUrl(tenant), strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", getTokenUrl(tenant), strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
