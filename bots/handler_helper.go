@@ -1471,7 +1471,7 @@ func handleSendStats(ctx context.Context, b *bot.Bot, tg_id int64, results []*st
 			t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
 			for _, v := range op_stats_slice {
 				t_time_str := utils.GetTimeString(v.LatestTime)
-				t_t_msg := fmt.Sprintf("            -  %v: %v(s)/%v(f) - %v", v.OpAlias, v.Success, v.Failure, t_time_str)
+				t_t_msg := fmt.Sprintf("            -  %v(s/f): %v/%v - %v", v.OpAlias, v.Success, v.Failure, t_time_str)
 				t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
 			}
 		}
