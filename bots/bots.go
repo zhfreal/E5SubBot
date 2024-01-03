@@ -65,7 +65,7 @@ func Start() {
 	go botTelegram.Start(ctx)
 	// init background task
 	// this must be called after bot start
-	// InitBackgroundTasks()
-	PerformTasks()
+	InitBackgroundTasks()
+	// PerformTasks()
 	wg.Wait()
 }
