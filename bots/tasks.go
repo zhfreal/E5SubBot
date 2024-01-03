@@ -149,7 +149,7 @@ func PerformTasks() {
 			}
 			details = append(details, d)
 			// print debug log about this result
-			logger.Debugf("<PerformTasks> got result for user - %v, op - %v, s/f - %v/%v, finish at - %v, duration - %v, %v\n", r.ID, r.OpID, r.S, r.F, time.Unix(r.EndTime, 0).Format("15:04:05"), r.Duration)
+			logger.Debugf("<PerformTasks> got result for user - %v, op - %v, s/f - %v/%v, finish at - %v, duration - %v\n", r.ID, r.OpID, r.S, r.F, time.Unix(r.EndTime, 0).Format("15:04:05"), r.Duration)
 			logger.Debugf("<PerformTasks> %v/%v, %v\n", t_count, tasks_count, r)
 			// send done message to goroutine
 			if t_count <= tasks_count {
