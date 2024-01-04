@@ -19,7 +19,7 @@ var query_string_full = map[string]string{
 // read one mail
 func readOneMail(access_token, folder_id, msg_id, proxy string) (int, int) {
 	var s, f int = 0, 0
-	t_url, t_err := getGraphApiUrl(map[string]string{}, getMsgFoldersSubPath(folder_id, msg_id))
+	t_url, t_err := getGraphApiUrl(query_string, getMsgFoldersSubPath(folder_id, msg_id))
 	if t_err != nil {
 		return s, f
 	}
@@ -63,22 +63,29 @@ func readOneMail(access_token, folder_id, msg_id, proxy string) (int, int) {
 	return s, f
 }
 
-// get all mails under folder, we get message from two APIs://
+// get mails under folder, we get message from two APIs:
 //
-//	   -- https://graph.microsoft.com/v1.0/me/messages/{id}; /me/messages/{id};
-//	   -- https://graph.microsoft.com/v1.0/me/mailFolders/{id}/messages/{msg_id}; /me/mailFolders/{id}/messages/{id};
-//	<access_token> can't be empty
-//	<folder_id> and <proxy> can be empty
-func readMailsFromFolder(access_token, folder_id string, amount int, proxy string) (int, int) {
+//	-- https://graph.microsoft.com/v1.0/me/messages/{id}; /me/messages/{id};
+//	-- https://graph.microsoft.com/v1.0/me/mailFolders/{id}/messages/{msg_id}; /me/mailFolders/{id}/messages/{id};
+//
+//	"access_token" can't be empty
+//	"folder_id" and "proxy" can be empty
+//
+//	count: specific count of mails to read, when count <=0, means read all mails
+func readMailsFromFolder(access_token, folder_id string, count int, proxy string, read_latest bool) (int, int) {
 	var content string
 	var err error
 	var s, f int = 0, 0
-	t_url, t_err := getGraphApiUrl(query_string, getMsgFoldersSubPath(folder_id, ""))
+	param := map[string]string{}
+	if read_latest {
+		param["$orderby"] = "sentDateTime DESC"
+	}
+	t_url, t_err := getGraphApiUrl(param, getMsgFoldersSubPath(folder_id, ""))
 	if t_err != nil {
 		return s, f
 	}
 	t_fetched := 0
-	for t_fetched < amount {
+	for count <= 0 || t_fetched < count {
 		content, err = performGraphApiGet(access_token, t_url, proxy)
 		if err != nil {
 			f += 1
@@ -86,7 +93,7 @@ func readMailsFromFolder(access_token, folder_id string, amount int, proxy strin
 		}
 		s += 1
 		// invalid response
-		if gjson.Get(content, OdataContext).String() == "" {
+		if gjson.Get(content, ODataContext).String() == "" {
 			return s, f
 		}
 		results := gjson.GetMany(content, "value.#.id", "value.#.isRead")
@@ -143,7 +150,7 @@ func readMailsFromAllFolders(access_token, proxy string) (int, int) {
 	for i := 0; i < len(t_id_list); i++ {
 		time.Sleep(APIInterval)
 		t_id := t_id_list[i]
-		t_s, t_f := readMailsFromFolder(access_token, t_id, ReadMailsCount, proxy)
+		t_s, t_f := readMailsFromFolder(access_token, t_id, ReadMailsCount, proxy, true)
 		s += t_s
 		f += t_f
 		// has child folders
@@ -202,7 +209,8 @@ func searchEmailByKeyword(access_token, keyword string, from, size int, proxy st
 }
 
 // read filtered mails by a keyword in specific folder with it's folder_id
-func readFilteredMails(folder_id, access_token, keyword string, amount int, proxy string) ([]gjson.Result, int, int, error) {
+// count: specific count of mails to read, when count <=0, means read all mails
+func readFilteredMails(folder_id, access_token, keyword string, count int, proxy string) ([]gjson.Result, int, int, error) {
 	var content string
 	var err error
 	var s, f int = 0, 0
@@ -213,7 +221,7 @@ func readFilteredMails(folder_id, access_token, keyword string, amount int, prox
 		return t_result_slice, s, f, err
 	}
 	t_fetched := 0
-	for t_fetched < amount {
+	for count <= 0 || t_fetched < count {
 		content, err = performGraphApiGet(access_token, t_url, proxy)
 		if err != nil {
 			f += 1
@@ -421,10 +429,16 @@ func getMailFoldersDelta(access_token, proxy string) (int, int) {
 	return 1, 0
 }
 
+// list mails
+func listMails(access_token, proxy string, count int) (int, int) {
+	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy, true)
+	return t_s, t_f
+}
+
 func WorkingOnMails(id uint, access_token string, out chan ApiResult, proxy string) {
 	var s, f int = 0, 0
 	t_start_at := time.Now()
-	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy)
+	t_s, t_f := listMails(access_token, proxy, ReadMailsCount)
 	s += t_s
 	f += t_f
 	time.Sleep(APIInterval)
@@ -460,7 +474,7 @@ func WorkingOnMails(id uint, access_token string, out chan ApiResult, proxy stri
 
 func DoListAllMails(id uint, access_token string, out chan ApiResult, proxy string) {
 	t_start_at := time.Now()
-	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy)
+	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy, true)
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- ApiResult{
