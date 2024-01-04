@@ -86,7 +86,7 @@ func readMailsFromFolder(access_token, folder_id string, amount int, proxy strin
 		}
 		s += 1
 		// invalid response
-		if gjson.Get(content, "@odata\\.context").String() == "" {
+		if gjson.Get(content, OdataContext).String() == "" {
 			return s, f
 		}
 		results := gjson.GetMany(content, "value.#.id", "value.#.isRead")
