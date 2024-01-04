@@ -289,7 +289,8 @@ func getFolderId(access_token, proxy string) ([]string, int, int, error) {
 	return folder_id_list, s, f, nil
 }
 
-// delete specific mails by keywords, each string in keywords will be a condition to query mails to delete
+// delete specific mails by keywords under specific folders, each string in keywords will be a condition to query mails to delete
+// we delete mails in "Inbox", "Sent Items", "Drafts"
 func deleteOutlookMails(access_token string, keywords []string, quantity_for_delete int, proxy string) (int, int) {
 	var ok bool
 	var s, f int = 0, 0
