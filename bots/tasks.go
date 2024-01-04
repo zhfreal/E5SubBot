@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-telegram/bot"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	"github.com/zhfreal/E5SubBot/config"
 	"github.com/zhfreal/E5SubBot/logger"
 	ms "github.com/zhfreal/E5SubBot/microsoft"

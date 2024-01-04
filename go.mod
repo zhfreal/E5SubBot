@@ -6,7 +6,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/glebarez/sqlite v1.10.0
 	github.com/go-telegram/bot v0.8.3
-	github.com/robfig/cron v1.2.0
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/viper v1.18.2
 	github.com/tidwall/gjson v1.17.0
 	go.uber.org/zap v1.26.0
