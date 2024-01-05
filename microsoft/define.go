@@ -18,7 +18,7 @@ const (
 	OpPost         string        = "POST"
 	OpDelete       string        = "DELETE"
 	APIInterval    time.Duration = 50 * time.Millisecond // in milliseconds
-	ReadMailsCount int           = 100
+	ReadMailsCount int           = 20
 	ODataNextLink  string        = "@odata\\.nextLink" // using github.com/tidwall/gjson to search path, the "." must be escaped
 	ODataContext   string        = "@odata\\.context"  // using github.com/tidwall/gjson to search path, the "." must be escaped
 	// const_timeout_request_device_code        = 10 // timeout in seconds for request device code
@@ -57,8 +57,6 @@ var (
 	OPs    = map[uint]string{
 		OpTypeMail: "Mails",
 	}
-	from = 0
-	size = 20
 )
 
 type TokenCache struct {

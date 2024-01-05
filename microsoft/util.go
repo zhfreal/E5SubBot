@@ -39,7 +39,7 @@ func getMsgFoldersSubPath(folder_id, msg_id string) string {
 	return sub_path
 }
 
-func getGraphApiUrl(query map[string]string, paths ...string) (string, error) {
+func genGraphApiUrl(query map[string]any, paths ...string) (string, error) {
 	// Construct the URL
 	var t_url string
 	var e error
@@ -68,7 +68,7 @@ func getGraphApiUrl(query map[string]string, paths ...string) (string, error) {
 	// Set query parameters using url.Values
 	queryParams := u.Query()
 	for k, v := range query {
-		queryParams.Add(k, v)
+		queryParams.Add(k, fmt.Sprintf("%v", v))
 	}
 
 	// Update the URL with the modified query parameters

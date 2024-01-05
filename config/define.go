@@ -33,6 +33,7 @@ var (
 	// ms.mail.auto-delete.quantity
 	MailAutoDeleteQuantity int = 20
 	// TelegramBot        *bot.Bot
+	MailReadUnread bool = false // read unread mails
 
 	// for logging
 	LogIntoFile bool   = true

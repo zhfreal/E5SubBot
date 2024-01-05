@@ -8,18 +8,18 @@ import (
 	"github.com/zhfreal/E5SubBot/config"
 )
 
-var query_string = map[string]string{
+var query_string = map[string]any{
 	"$select": "sender,subject,from,toRecipients,ccRecipients,hasAttachments,isRead,isDraft",
 }
 
-var query_string_full = map[string]string{
+var query_string_full = map[string]any{
 	"$select": "sender,subject,from,body,flag,importance,toRecipients,ccRecipients,hasAttachments,isRead,isDraft",
 }
 
 // read one mail
 func readOneMail(access_token, folder_id, msg_id, proxy string) (int, int) {
 	var s, f int = 0, 0
-	t_url, t_err := getGraphApiUrl(query_string, getMsgFoldersSubPath(folder_id, msg_id))
+	t_url, t_err := genGraphApiUrl(query_string, getMsgFoldersSubPath(folder_id, msg_id))
 	if t_err != nil {
 		return s, f
 	}
@@ -33,7 +33,7 @@ func readOneMail(access_token, folder_id, msg_id, proxy string) (int, int) {
 	// get attachments
 	if !is_read {
 		// get attachments list
-		t_url, t_err = getGraphApiUrl(query_string_full, getMsgFoldersSubPath(folder_id, msg_id), "/attachments")
+		t_url, t_err = genGraphApiUrl(query_string_full, getMsgFoldersSubPath(folder_id, msg_id), "/attachments")
 		if t_err != nil {
 			return s, f
 		}
@@ -47,7 +47,7 @@ func readOneMail(access_token, folder_id, msg_id, proxy string) (int, int) {
 		t_id_list := t_results[0].Array()
 		// get attachments content
 		for _, t_a := range t_id_list {
-			t_url, t_err = getGraphApiUrl(map[string]string{}, getMsgFoldersSubPath(folder_id, msg_id), "/attachments/", t_a.String())
+			t_url, t_err = genGraphApiUrl(map[string]any{}, getMsgFoldersSubPath(folder_id, msg_id), "/attachments/", t_a.String())
 			if t_err != nil {
 				continue
 			}
@@ -65,22 +65,37 @@ func readOneMail(access_token, folder_id, msg_id, proxy string) (int, int) {
 
 // get mails under folder, we get message from two APIs:
 //
-//	-- https://graph.microsoft.com/v1.0/me/messages/{id}; /me/messages/{id};
-//	-- https://graph.microsoft.com/v1.0/me/mailFolders/{id}/messages/{msg_id}; /me/mailFolders/{id}/messages/{id};
+//			-- https://graph.microsoft.com/v1.0/me/messages/{id}; /me/messages/{id};
+//			-- https://graph.microsoft.com/v1.0/me/mailFolders/{id}/messages/{msg_id}; /me/mailFolders/{id}/messages/{id};
 //
-//	"access_token" can't be empty
-//	"folder_id" and "proxy" can be empty
-//
-//	count: specific count of mails to read, when count <=0, means read all mails
-func readMailsFromFolder(access_token, folder_id string, count int, proxy string, read_latest bool) (int, int) {
+//		 params:
+//			"access_token": api access token;
+//			"folder_id": folder's id;
+//			"count": specific count of mails to read, when count <=0, means read all mails;
+//	        "proxy": specific the proxy when we perform REST API;
+//	        "filter_unread": filter unread mails;
+//	        "read_latest": read latest mails;
+//	        "read_unread": read unread mails;
+func readMailsFromFolder(access_token, folder_id string, count int, proxy string, filter_unread, read_latest, read_unread bool) (int, int) {
 	var content string
 	var err error
 	var s, f int = 0, 0
-	param := map[string]string{}
-	if read_latest {
-		param["$orderby"] = "sentDateTime DESC"
+	param := map[string]any{}
+	// read unread mails
+	if filter_unread {
+		param["$filter"] = "isRead eq false"
 	}
-	t_url, t_err := getGraphApiUrl(param, getMsgFoldersSubPath(folder_id, ""))
+	// order result by receivedDateTime reverse order
+	if read_latest {
+		param["$orderby"] = "receivedDateTime DESC"
+	}
+	// set $top
+	t_top := count
+	if t_top <= 0 {
+		t_top = ReadMailsCount
+	}
+	param["$top"] = t_top
+	t_url, t_err := genGraphApiUrl(param, getMsgFoldersSubPath(folder_id, ""))
 	if t_err != nil {
 		return s, f
 	}
@@ -106,7 +121,7 @@ func readMailsFromFolder(access_token, folder_id string, count int, proxy string
 			t_msg_id := id_slice[i].String()
 			t_is_read := read_slice[i].Bool()
 			// does not read yet
-			if !t_is_read {
+			if read_unread && !t_is_read {
 				// read message after 100 milliseconds
 				time.Sleep(APIInterval)
 				t_s, t_f := readOneMail(access_token, folder_id, t_msg_id, proxy)
@@ -127,7 +142,7 @@ func readMailsFromFolder(access_token, folder_id string, count int, proxy string
 }
 
 // get all mailFolders and their child folders, and their mails
-func readMailsFromAllFolders(access_token, proxy string) (int, int) {
+func readMailsFromAllFolders(access_token, proxy string, read_unread bool) (int, int) {
 	var content string
 	var err error
 	var s, f int = 0, 0
@@ -150,14 +165,18 @@ func readMailsFromAllFolders(access_token, proxy string) (int, int) {
 	for i := 0; i < len(t_id_list); i++ {
 		time.Sleep(APIInterval)
 		t_id := t_id_list[i]
-		t_s, t_f := readMailsFromFolder(access_token, t_id, ReadMailsCount, proxy, true)
+		// mails delta
+		t_s, t_f := getMailFoldersDelta(access_token, t_id, proxy)
+		s += t_s
+		f += t_f
+		t_s, t_f = readMailsFromFolder(access_token, t_id, ReadMailsCount, proxy, false, false, read_unread)
 		s += t_s
 		f += t_f
 		// has child folders
 		if folders[t_id]["childFolders"].Int() > 0 {
 			// get child folders
 			time.Sleep(APIInterval)
-			url, _ := getGraphApiUrl(map[string]string{}, "/me/mailFolders", t_id, "/childFolders")
+			url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders", t_id, "/childFolders")
 			content, err = performGraphApiGet(access_token, url, proxy)
 			if err != nil {
 				f += 1
@@ -185,7 +204,7 @@ func readMailsFromAllFolders(access_token, proxy string) (int, int) {
 
 func deleteOneEmail(access_token, folder_id, msg_id, proxy string) (bool, error) {
 	ok := false
-	t_url, err := getGraphApiUrl(map[string]string{}, getMsgFoldersSubPath(folder_id, msg_id))
+	t_url, err := genGraphApiUrl(map[string]any{}, getMsgFoldersSubPath(folder_id, msg_id))
 	if err != nil {
 		return ok, fmt.Errorf("fail to generate url, failed with %v", err.Error())
 	}
@@ -197,7 +216,7 @@ func deleteOneEmail(access_token, folder_id, msg_id, proxy string) (bool, error)
 func searchEmailByKeyword(access_token, keyword string, from, size int, proxy string) (string, error) {
 	var content string
 	var err error
-	t_url, err := getGraphApiUrl(map[string]string{}, "/search/query")
+	t_url, err := genGraphApiUrl(map[string]any{}, "/search/query")
 	if err != nil {
 		return "", fmt.Errorf("fail to generate url, failed with %v", err.Error())
 	}
@@ -208,15 +227,23 @@ func searchEmailByKeyword(access_token, keyword string, from, size int, proxy st
 	return content, nil
 }
 
-// read filtered mails by a keyword in specific folder with it's folder_id
+// get filtered mails by a keyword in specific folder with it's folder_id
 // count: specific count of mails to read, when count <=0, means read all mails
-func readFilteredMails(folder_id, access_token, keyword string, count int, proxy string) ([]gjson.Result, int, int, error) {
+// use $search instead of $filter for more convenient call
+// return: the mails in []gjson.Result, the success operation count, the failure operation account, and the error
+func getFilteredMails(folder_id, access_token, keyword string, count int, proxy string) ([]gjson.Result, int, int, error) {
 	var content string
 	var err error
 	var s, f int = 0, 0
 	var t_result_slice []gjson.Result
-	t_filter_string := fmt.Sprintf("contains(body/content,'%v')", keyword)
-	t_url, err := getGraphApiUrl(map[string]string{"filter": t_filter_string}, "me/mailFolders", folder_id, "messages")
+	// quote the keyword
+	var params map[string]any = map[string]any{"$search": fmt.Sprintf("\"%v\"", keyword)}
+	t_top := count
+	if t_top <= 0 {
+		t_top = ReadMailsCount
+	}
+	params["$top"] = t_top
+	t_url, err := genGraphApiUrl(params, "me/mailFolders", folder_id, "messages")
 	if err != nil {
 		return t_result_slice, s, f, err
 	}
@@ -253,7 +280,7 @@ func getAllMailFolders(access_token, proxy string) ([]gjson.Result, int, int, er
 	var s, f int = 0, 0
 	var err error
 	var content string
-	t_url, _ := getGraphApiUrl(map[string]string{}, "/me/mailFolders")
+	t_url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders")
 	for {
 		content, err = performGraphApiGet(access_token, t_url, proxy)
 		if err != nil {
@@ -315,7 +342,7 @@ func deleteOutlookMails(access_token string, keywords []string, quantity_for_del
 		for _, t_keywords := range keywords {
 		OUTER_LOOP:
 			for {
-				t_result_list, t_s, t_f, err := readFilteredMails(folder_id, access_token, t_keywords, quantity_for_delete, proxy)
+				t_result_list, t_s, t_f, err := getFilteredMails(folder_id, access_token, t_keywords, quantity_for_delete, proxy)
 				s += t_s
 				f += t_f
 				// bad request, or network issue or other error, rather than empty search result
@@ -360,14 +387,14 @@ func deleteOutlookMails(access_token string, keywords []string, quantity_for_del
 }
 
 // use https://graph.microsoft.com/v1.0/search/query
-func searchAndLoopMails(access_token string, keywords []string, fetch_quantity int, proxy string) (int, int) {
+func searchAndLoopMails(access_token string, keywords []string, fetch_quantity int, proxy string, read_unread bool) (int, int) {
 	var s, f int = 0, 0
 	var fetched int
-	t_from := from
+	t_from := 0
 	// loop keywords, search mails and delete mails
 	for _, t_keywords := range keywords {
 		for {
-			content, err := searchEmailByKeyword(access_token, t_keywords, t_from, size, proxy)
+			content, err := searchEmailByKeyword(access_token, t_keywords, t_from, ReadMailsCount, proxy)
 			// bad request, or network issue or other error, rather than empty search result
 			if err != nil {
 				f += 1
@@ -399,7 +426,7 @@ func searchAndLoopMails(access_token string, keywords []string, fetch_quantity i
 				t_msg_id := t_msg_id_list[i].String()
 				t_is_read := t_is_read_list[i].Bool()
 				t_folder_id := t_folder_id_list[i].String()
-				if !t_is_read {
+				if read_unread && !t_is_read {
 					// read this message if it is not read yet
 					time.Sleep(APIInterval)
 					t_s, t_f := readOneMail(access_token, t_folder_id, t_msg_id, proxy)
@@ -412,7 +439,7 @@ func searchAndLoopMails(access_token string, keywords []string, fetch_quantity i
 			if !t_more_results_available || fetched >= fetch_quantity {
 				break
 			}
-			from += len(t_msg_id_list)
+			t_from += len(t_msg_id_list)
 		}
 	}
 	return s, f
@@ -420,8 +447,8 @@ func searchAndLoopMails(access_token string, keywords []string, fetch_quantity i
 
 // get mailFolders delta
 // TODO: read messages from delta
-func getMailFoldersDelta(access_token, proxy string) (int, int) {
-	t_url, _ := getGraphApiUrl(map[string]string{}, "/me/mailFolders/delta")
+func getMailFoldersDelta(access_token, folder_id, proxy string) (int, int) {
+	t_url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders", folder_id, "messages", "delta")
 	_, err := performGraphApiGet(access_token, t_url, proxy)
 	if err != nil {
 		return 0, 1
@@ -429,27 +456,24 @@ func getMailFoldersDelta(access_token, proxy string) (int, int) {
 	return 1, 0
 }
 
-// list mails
-func listMails(access_token, proxy string, count int) (int, int) {
-	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy, true)
+// list unread mails
+func listUnreadMails(access_token, proxy string, count int, read_unread bool) (int, int) {
+	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy, true, true, read_unread)
 	return t_s, t_f
 }
 
 func WorkingOnMails(id uint, access_token string, out chan ApiResult, proxy string) {
 	var s, f int = 0, 0
 	t_start_at := time.Now()
-	t_s, t_f := listMails(access_token, proxy, ReadMailsCount)
+	t_s, t_f := listUnreadMails(access_token, proxy, ReadMailsCount, config.MailReadUnread)
 	s += t_s
 	f += t_f
 	time.Sleep(APIInterval)
-	t_s, t_f = readMailsFromAllFolders(access_token, proxy)
+	t_s, t_f = readMailsFromAllFolders(access_token, proxy, config.MailReadUnread)
 	s += t_s
 	f += t_f
 	time.Sleep(APIInterval)
-	t_s, t_f = getMailFoldersDelta(access_token, proxy)
-	s += t_s
-	f += t_f
-	t_s, t_f = searchAndLoopMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
+	t_s, t_f = searchAndLoopMails(access_token, config.MailAutoDeleteKeyWords, ReadMailsCount, proxy, config.MailReadUnread)
 	s += t_s
 	f += t_f
 	// do deleteOutlookMails just according the config file
@@ -472,50 +496,50 @@ func WorkingOnMails(id uint, access_token string, out chan ApiResult, proxy stri
 	}
 }
 
-func DoListAllMails(id uint, access_token string, out chan ApiResult, proxy string) {
-	t_start_at := time.Now()
-	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy, true)
-	t_end_at := time.Now()
-	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
-	out <- ApiResult{
-		ID:        id,
-		OpID:      OpTypeMail,
-		S:         t_s,
-		F:         t_f,
-		StartTime: t_start_at.Unix(),
-		Duration:  t_durations_milliseconds,
-		EndTime:   t_end_at.Unix(),
-	}
-}
+// func DoListAllMails(id uint, access_token string, out chan ApiResult, proxy string) {
+// 	t_start_at := time.Now()
+// 	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy, false, false)
+// 	t_end_at := time.Now()
+// 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+// 	out <- ApiResult{
+// 		ID:        id,
+// 		OpID:      OpTypeMail,
+// 		S:         t_s,
+// 		F:         t_f,
+// 		StartTime: t_start_at.Unix(),
+// 		Duration:  t_durations_milliseconds,
+// 		EndTime:   t_end_at.Unix(),
+// 	}
+// }
 
-func DoListAllMailFolders(id uint, access_token string, out chan ApiResult, proxy string) {
-	t_start_at := time.Now()
-	t_s, t_f := readMailsFromAllFolders(access_token, proxy)
-	t_end_at := time.Now()
-	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
-	out <- ApiResult{
-		ID:        id,
-		OpID:      OpTypeMail,
-		S:         t_s,
-		F:         t_f,
-		StartTime: t_start_at.Unix(),
-		Duration:  t_durations_milliseconds,
-		EndTime:   t_end_at.Unix(),
-	}
-}
+// func DoListAllMailFolders(id uint, access_token string, out chan ApiResult, proxy string) {
+// 	t_start_at := time.Now()
+// 	t_s, t_f := readMailsFromAllFolders(access_token, proxy)
+// 	t_end_at := time.Now()
+// 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+// 	out <- ApiResult{
+// 		ID:        id,
+// 		OpID:      OpTypeMail,
+// 		S:         t_s,
+// 		F:         t_f,
+// 		StartTime: t_start_at.Unix(),
+// 		Duration:  t_durations_milliseconds,
+// 		EndTime:   t_end_at.Unix(),
+// 	}
+// }
 
-func DoMailDeletion(id uint, access_token string, out chan ApiResult, proxy string) {
-	t_start_at := time.Now()
-	t_s, t_f := deleteOutlookMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
-	t_end_at := time.Now()
-	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
-	out <- ApiResult{
-		ID:        id,
-		OpID:      OpTypeMail,
-		S:         t_s,
-		F:         t_f,
-		StartTime: t_start_at.Unix(),
-		Duration:  t_durations_milliseconds,
-		EndTime:   t_end_at.Unix(),
-	}
-}
+// func DoMailDeletion(id uint, access_token string, out chan ApiResult, proxy string) {
+// 	t_start_at := time.Now()
+// 	t_s, t_f := deleteOutlookMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
+// 	t_end_at := time.Now()
+// 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+// 	out <- ApiResult{
+// 		ID:        id,
+// 		OpID:      OpTypeMail,
+// 		S:         t_s,
+// 		F:         t_f,
+// 		StartTime: t_start_at.Unix(),
+// 		Duration:  t_durations_milliseconds,
+// 		EndTime:   t_end_at.Unix(),
+// 	}
+// }

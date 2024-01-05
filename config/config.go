@@ -67,6 +67,7 @@ func Init(file_path string) {
 	viper.SetDefault("ms.mail.auto-delete.keyword", MailAutoDeleteKeyWords[0])
 	viper.SetDefault("ms.mail.auto-delete.keywords", MailAutoDeleteKeyWords)
 	viper.SetDefault("ms.mail.auto-delete.quantity", MailAutoDeleteQuantity)
+	viper.SetDefault("ms.mail.read-unread", MailReadUnread)
 	// logging
 	viper.SetDefault("log.log-into-file", LogIntoFile)
 	viper.SetDefault("log.log-dir", LogDir)
@@ -82,7 +83,7 @@ func Init(file_path string) {
 
 	// read from config.yaml
 	// mail deletion settings
-	readMsMailAutoDeleteSection()
+	readMsSection()
 
 	// logging settings
 	LogIntoFile = viper.GetBool("log.log-into-file")
@@ -124,8 +125,8 @@ func Init(file_path string) {
 		MaxErrTimes = viper.GetInt("errlimit")
 		Notice = viper.GetString("notice")
 		Admins = getAdmins()
-		// reload ms.mail.auto-delete
-		readMsMailAutoDeleteSection()
+		// reload ms section
+		readMsSection()
 	})
 }
 
@@ -139,7 +140,7 @@ func getAdmins() []int64 {
 	return result
 }
 
-func readMsMailAutoDeleteSection() {
+func readMsSection() {
 	// ms.mail.auto-delete.enabled
 	MailAutoDeleteEnabled = viper.GetBool("ms.mail.auto-delete.enabled")
 	// ms.mail.auto-delete.keywords
@@ -161,4 +162,5 @@ func readMsMailAutoDeleteSection() {
 	for k := range MailAutoDeleteKeyWordsMap {
 		MailAutoDeleteKeyWords = append(MailAutoDeleteKeyWords, k)
 	}
+	MailReadUnread = viper.GetBool("ms.mail.read-unread")
 }
