@@ -37,7 +37,7 @@ func readOneMail(access_token, folder_id, msg_id, proxy string) (int, int) {
 		if t_err != nil {
 			return s, f
 		}
-		time.Sleep(APIInterval)
+		// time.Sleep(APIInterval)
 		content, t_err = performGraphApiGet(access_token, t_url, proxy)
 		if t_err != nil {
 			return s, f + 1
@@ -51,7 +51,7 @@ func readOneMail(access_token, folder_id, msg_id, proxy string) (int, int) {
 			if t_err != nil {
 				continue
 			}
-			time.Sleep(APIInterval)
+			// time.Sleep(APIInterval)
 			_, t_err = performGraphApiGet(access_token, t_url, proxy)
 			if t_err != nil {
 				f += 1
@@ -100,7 +100,7 @@ func readMailsFromFolder(access_token, folder_id string, count int, proxy string
 		return s, f
 	}
 	t_fetched := 0
-	for count <= 0 || t_fetched < count {
+	for {
 		content, err = performGraphApiGet(access_token, t_url, proxy)
 		if err != nil {
 			f += 1
@@ -123,7 +123,7 @@ func readMailsFromFolder(access_token, folder_id string, count int, proxy string
 			// does not read yet
 			if read_unread && !t_is_read {
 				// read message after 100 milliseconds
-				time.Sleep(APIInterval)
+				// time.Sleep(APIInterval)
 				t_s, t_f := readOneMail(access_token, folder_id, t_msg_id, proxy)
 				s += t_s
 				f += t_f
@@ -132,11 +132,11 @@ func readMailsFromFolder(access_token, folder_id string, count int, proxy string
 		t_fetched += len(id_slice)
 		t_next_url := gjson.Get(content, ODataNextLink).String()
 		// no more results
-		if len(t_next_url) == 0 {
+		if len(t_next_url) == 0 || (count > 0 && t_fetched >= count) {
 			break
 		}
 		t_url = t_next_url
-		time.Sleep(APIInterval)
+		// time.Sleep(APIInterval)
 	}
 	return s, f
 }
@@ -163,7 +163,7 @@ func readMailsFromAllFolders(access_token, proxy string, read_unread bool) (int,
 	}
 	// loop to get all mails and sub folders
 	for i := 0; i < len(t_id_list); i++ {
-		time.Sleep(APIInterval)
+		// time.Sleep(APIInterval)
 		t_id := t_id_list[i]
 		// mails delta
 		t_s, t_f := getMailFoldersDelta(access_token, t_id, proxy)
@@ -175,7 +175,7 @@ func readMailsFromAllFolders(access_token, proxy string, read_unread bool) (int,
 		// has child folders
 		if folders[t_id]["childFolders"].Int() > 0 {
 			// get child folders
-			time.Sleep(APIInterval)
+			// time.Sleep(APIInterval)
 			url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders", t_id, "/childFolders")
 			content, err = performGraphApiGet(access_token, url, proxy)
 			if err != nil {
@@ -269,7 +269,7 @@ func getFilteredMails(folder_id, access_token, keyword string, count int, proxy 
 			break
 		}
 		t_url = t_next_url
-		time.Sleep(APIInterval)
+		// time.Sleep(APIInterval)
 	}
 	return t_result_slice, s, f, err
 }
@@ -359,13 +359,13 @@ func deleteOutlookMails(access_token string, keywords []string, quantity_for_del
 					t_folder_id := r.Get("parentFolderId").String()
 					if !t_is_read {
 						// read this message
-						time.Sleep(APIInterval)
+						// time.Sleep(APIInterval)
 						t_s, t_f := readOneMail(access_token, t_folder_id, t_msg_id, proxy)
 						s += t_s
 						f += t_f
 					}
 					// do deleteOneEmail
-					time.Sleep(APIInterval)
+					// time.Sleep(APIInterval)
 					ok, err = deleteOneEmail(access_token, t_folder_id, t_msg_id, proxy)
 					if err != nil || !ok {
 						// fail to delete
@@ -428,7 +428,7 @@ func searchAndLoopMails(access_token string, keywords []string, fetch_quantity i
 				t_folder_id := t_folder_id_list[i].String()
 				if read_unread && !t_is_read {
 					// read this message if it is not read yet
-					time.Sleep(APIInterval)
+					// time.Sleep(APIInterval)
 					t_s, t_f := readOneMail(access_token, t_folder_id, t_msg_id, proxy)
 					s += t_s
 					f += t_f
@@ -468,17 +468,17 @@ func WorkingOnMails(id uint, access_token string, out chan ApiResult, proxy stri
 	t_s, t_f := listUnreadMails(access_token, proxy, ReadMailsCount, config.MailReadUnread)
 	s += t_s
 	f += t_f
-	time.Sleep(APIInterval)
+	// time.Sleep(APIInterval)
 	t_s, t_f = readMailsFromAllFolders(access_token, proxy, config.MailReadUnread)
 	s += t_s
 	f += t_f
-	time.Sleep(APIInterval)
+	// time.Sleep(APIInterval)
 	t_s, t_f = searchAndLoopMails(access_token, config.MailAutoDeleteKeyWords, ReadMailsCount, proxy, config.MailReadUnread)
 	s += t_s
 	f += t_f
 	// do deleteOutlookMails just according the config file
 	if config.MailAutoDeleteEnabled {
-		time.Sleep(APIInterval)
+		// time.Sleep(APIInterval)
 		t_s, t_f = deleteOutlookMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
 		s += t_s
 		f += t_f
