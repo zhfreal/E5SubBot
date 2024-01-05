@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
-	"time"
 )
 
 func GetRegURLNew() string {
@@ -164,20 +162,4 @@ func performGraphApi(action, access_token, url_str, data, proxy string) (*http.R
 		}
 	}
 	return client.Do(req)
-}
-
-func WorkingOnMsFromChan(in chan Args, out chan ApiResult, done chan bool, wg *sync.WaitGroup, proxy string) {
-	for {
-		select {
-		case args := <-in:
-			args.Func(args.ID, args.AccessToken, out, proxy)
-		case ok := <-done:
-			if ok {
-				wg.Done()
-				return
-			}
-		default:
-			time.Sleep(APIInterval)
-		}
-	}
 }

@@ -78,17 +78,18 @@ type TokenCache struct {
 }
 
 type ApiResult struct {
-	ID        uint // UsersConfig's ID, indicate which user in storage
-	OpID      uint
-	S, F      int
-	StartTime int64 // start time in unix time format
-	Duration  int64 // Operation in millisecond
-	EndTime   int64 // end time in unix time format
+	ID        uint       // UsersConfig's ID, indicate which user in storage
+	OpID      uint       // the operation'ID, indicate which operation, return by specific Func()
+	S, F      int        // successful and failed operation count
+	StartTime *time.Time // start time in unix time format
+	Duration  int64      // Operation in millisecond
+	EndTime   *time.Time // end time in unix time format
+	Arg       *Args      // if the operation just a middleware, need pass this to later procession
 }
 
 type Args struct {
-	Func        func(id uint, access_token string, out chan ApiResult, proxy string)
-	ID          uint
+	Func        func(id uint, access_token string, out chan *ApiResult, proxy string)
+	ID          uint // UsersConfig's ID, indicate which user in storage, just label this args, no actual usage in Func()
 	AccessToken string
 }
 

@@ -3,7 +3,6 @@ package bots
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/go-telegram/bot"
@@ -55,22 +54,26 @@ func PerformTasks() {
 	for _, v := range all_apps {
 		app_map[v.ID] = v.Alias
 	}
-	var wg sync.WaitGroup
-	var in chan ms.Args
-	var out chan ms.ApiResult
+	var wg_prd WaitGroupCount  // for task producer
+	var wg_con WaitGroupCount  // for task consumer
+	var wg_task WaitGroupCount // for tasks themselves
+	var in chan *ms.Args
+	var out chan *ms.ApiResult
 	var done chan bool
-	tasks_count := 0
+	// tasks_count := 0
 	// init all chan
 	thread_count := utils.MinInt(t_len_users_config, config.MaxGoroutines)
-	in = make(chan ms.Args, t_len_users_config)
-	out = make(chan ms.ApiResult, t_len_users_config)
+	in = make(chan *ms.Args, t_len_users_config)
+	out = make(chan *ms.ApiResult, t_len_users_config)
 	done = make(chan bool, t_len_users_config)
 	// put task
 	// add to wg
-	wg.Add(1)
-	go func() {
-		for _, uc := range all_users_config {
+	for _, uc := range all_users_config {
+		wg_prd.Add(1)
+		go func(uc *storage.Users) {
 			// mails
+			// release from wg
+			defer wg_prd.Done()
 			user_id := uc.ID
 			tg_id := uc.TgId
 			t_token, is_refresh_err, e := GetToken(uc)
@@ -90,7 +93,7 @@ func PerformTasks() {
 					})
 					if e != nil {
 						logger.Errorf("<PerformTasks> failed to send account unbind option message to %v, failed with: %v\n", tg_id, e.Error())
-						continue
+						return
 					}
 					// clean old unbind message to void too many messages in user side
 					t_key_list := BindCachedObj.FindMsgKeyByChatIDAndReplyTypeExtraDataKey1(tg_id, ReplyForUnbindAccountS2, ms_username)
@@ -100,40 +103,39 @@ func PerformTasks() {
 					// send option message to user to unbound this account, and cached in BindCachedObj
 					handleUnbindAccountS1Helper(context.Background(), botTelegram, tg_id, uc, "PerformTasks")
 				}
-				continue
+				return
 			}
 			args := ms.Args{
 				Func:        ms.WorkingOnMails,
 				ID:          user_id,
 				AccessToken: t_token,
 			}
-			in <- args
-			tasks_count += 1
-		}
-		// release from wg
-		wg.Done()
-	}()
+			in <- &args
+			wg_task.Add(1)
+		}(uc)
+	}
 
 	for i := 0; i < thread_count; i++ {
-		wg.Add(1)
-		go ms.WorkingOnMsFromChan(in, out, done, &wg, config.ProxyObj.UrlStr)
+		wg_con.Add(1)
+		go WorkingOnMsFromChan(in, out, done, &wg_con, config.ProxyObj.UrlStr)
 	}
 	// handle results
 
 	var stats []*storage.Stats
 	var details []*storage.OpDetails
 
-	//
-	wg.Add(1)
-	go func() {
-		t_count := 0
-		for r := range out {
+	t_count := 0
+RESULT_LOPPER:
+	for {
+		select {
+		case r := <-out:
+			wg_task.Done()
 			t_s := &storage.Stats{
 				UserID:   r.ID,
 				OpID:     r.OpID,
 				Success:  r.S,
 				Failure:  r.F,
-				LastTime: r.StartTime,
+				LastTime: r.StartTime.Unix(),
 			}
 			stats = append(stats, t_s)
 			t_count++
@@ -141,29 +143,34 @@ func PerformTasks() {
 			d := &storage.OpDetails{
 				UserID:    r.ID,
 				OpID:      r.OpID,
-				StartTime: r.StartTime,
-				EndTime:   r.EndTime,
+				StartTime: r.StartTime.Unix(),
+				EndTime:   r.EndTime.Unix(),
 				Success:   r.S,
 				Failure:   r.F,
 				Duration:  r.Duration,
 			}
 			details = append(details, d)
 			// print debug log about this result
-			logger.Debugf("<PerformTasks> got result for user - %v, op - %v, s/f - %v/%v, finish at - %v, duration - %v\n", r.ID, r.OpID, r.S, r.F, time.Unix(r.EndTime, 0).Format("15:04:05"), r.Duration)
-			logger.Debugf("<PerformTasks> %v/%v, %v\n", t_count, tasks_count, r)
-			// send done message to goroutine
-			if t_count <= tasks_count {
-				done <- true
+			logger.Debugf("<PerformTasks> got result for user - %v, op - %v, s/f - %v/%v, finish at - %v, duration - %v\n", r.ID, r.OpID, r.S, r.F, r.EndTime.Format("15:04:05"), r.Duration)
+			logger.Debugf("<PerformTasks> %v/%v, %v\n", t_count, wg_task.GetCount(), r)
+		default:
+			// when we get enough results and task producer all finished, then break the looper, we are finishing
+			if wg_task.GetCount() == 0 && wg_prd.GetCount() == 0 {
+				break RESULT_LOPPER
 			}
-			if t_count >= tasks_count {
-				break
-			}
-			// time.Sleep(500 * time.Microsecond)
+			time.Sleep(50 * time.Millisecond)
 		}
-		wg.Done()
-	}()
+	}
+
+	// put done for all threads after we receive all results
+	for i := 0; i < thread_count; i++ {
+		done <- true
+	}
+
 	// wait for all tasks
-	wg.Wait()
+	wg_prd.Wait()
+	wg_con.Wait()
+	wg_task.Wait()
 	// task end here
 	t_end_time := time.Now()
 	t_duration := t_end_time.Sub(t_start_time).Milliseconds()
@@ -195,6 +202,22 @@ func PerformTasks() {
 	if config.LogLevel == "debug" {
 		storage.SaveOpDetails(details)
 		storage.SaveTaskRecords(task_records)
+	}
+}
+
+func WorkingOnMsFromChan(in chan *ms.Args, out chan *ms.ApiResult, done chan bool, wg *WaitGroupCount, proxy string) {
+	for {
+		select {
+		case args := <-in:
+			args.Func(args.ID, args.AccessToken, out, proxy)
+		case ok := <-done:
+			if ok {
+				wg.Done()
+				return
+			}
+		default:
+			time.Sleep(ms.APIInterval)
+		}
 	}
 }
 

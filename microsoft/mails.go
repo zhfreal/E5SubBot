@@ -305,7 +305,7 @@ func getAllMailFolders(access_token, proxy string) ([]gjson.Result, int, int, er
 }
 
 // get the folder_id of "Inbox", "Sent Items", "Drafts"
-func getFolderId(access_token, proxy string) ([]string, int, int, error) {
+func getSpecificFolderId(access_token, proxy string, folder_name_list []string) ([]string, int, int, error) {
 	var folder_id_list []string
 	var s, f int = 0, 0
 	t_folder_result, t_s, t_f, err := getAllMailFolders(access_token, proxy)
@@ -314,10 +314,15 @@ func getFolderId(access_token, proxy string) ([]string, int, int, error) {
 	if err != nil {
 		return folder_id_list, s, f, err
 	}
+	// make temp folder name map for quick search
+	t_folder_name_map := make(map[string]bool)
+	for _, r := range folder_name_list {
+		t_folder_name_map[r] = true
+	}
 	for _, r := range t_folder_result {
 		folder_name := r.Get("displayName").String()
 		folder_id := r.Get("id").String()
-		if folder_name == "Inbox" || folder_name == "Sent Items" || folder_name == "Drafts" {
+		if t_folder_name_map[folder_name] {
 			folder_id_list = append(folder_id_list, folder_id)
 		}
 	}
@@ -331,7 +336,7 @@ func deleteOutlookMails(access_token string, keywords []string, quantity_for_del
 	var s, f int = 0, 0
 	t_deleted := 0
 	// get all folders, get the folder_id of "Inbox", "Sent Items", "Drafts"
-	target_folder_list, t_s, t_f, err := getFolderId(access_token, proxy)
+	target_folder_list, t_s, t_f, err := getSpecificFolderId(access_token, proxy, []string{"Inbox", "Sent Items", "Drafts"})
 	s += t_s
 	f += t_f
 	if err != nil || len(target_folder_list) == 0 {
@@ -462,7 +467,7 @@ func listUnreadMails(access_token, proxy string, count int, read_unread bool) (i
 	return t_s, t_f
 }
 
-func WorkingOnMails(id uint, access_token string, out chan ApiResult, proxy string) {
+func WorkingOnMails(id uint, access_token string, out chan *ApiResult, proxy string) {
 	var s, f int = 0, 0
 	t_start_at := time.Now()
 	t_s, t_f := listUnreadMails(access_token, proxy, ReadMailsCount, config.MailReadUnread)
@@ -485,14 +490,14 @@ func WorkingOnMails(id uint, access_token string, out chan ApiResult, proxy stri
 	}
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
-	out <- ApiResult{
+	out <- &ApiResult{
 		ID:        id,
 		OpID:      OpTypeMail,
 		S:         s,
 		F:         f,
-		StartTime: t_start_at.Unix(),
+		StartTime: &t_start_at,
 		Duration:  t_durations_milliseconds,
-		EndTime:   t_end_at.Unix(),
+		EndTime:   &t_end_at,
 	}
 }
 
