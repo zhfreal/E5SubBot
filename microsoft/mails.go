@@ -248,7 +248,7 @@ func getFilteredMails(folder_id, access_token, keyword string, count int, proxy 
 		return t_result_slice, s, f, err
 	}
 	t_fetched := 0
-	for count <= 0 || t_fetched < count {
+	for {
 		content, err = performGraphApiGet(access_token, t_url, proxy)
 		if err != nil {
 			f += 1
@@ -265,7 +265,7 @@ func getFilteredMails(folder_id, access_token, keyword string, count int, proxy 
 		t_result_slice = append(t_result_slice, t_values_slice...)
 		t_next_url := gjson.Get(content, ODataNextLink).String()
 		// no more results
-		if len(t_next_url) == 0 {
+		if len(t_next_url) == 0 || (count > 0 && t_fetched >= count) {
 			break
 		}
 		t_url = t_next_url
