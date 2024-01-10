@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/go-telegram/bot"
+	cron "github.com/robfig/cron/v3"
+	"github.com/zhfreal/E5SubBot/config"
 	"github.com/zhfreal/E5SubBot/storage"
 )
 
@@ -75,6 +77,14 @@ var (
 )
 
 var (
+	// yaml config file instance
+	ConfigYamlObj *config.ConfigYaml
+	// tg admin AdminList
+	AdminSet *config.AdminList
+	// proxy instance
+	ProxyObj *config.ProxyValid
+	// cron instance
+	CronObj *cron.Cron
 	// instance of github.com/go-telegram/bot.Bot
 	botTelegram *bot.Bot
 	// device code caches
@@ -621,10 +631,4 @@ func (wg *WaitGroupCount) GetCount() int {
 
 func (wg *WaitGroupCount) Wait() {
 	wg.WaitGroup.Wait()
-}
-
-func Init() {
-	AuthCachedObj = NewAuthCache()
-	BindCachedObj = NewBindCache()
-	UsersConfigCacheObj = NewUsersConfigCache()
 }

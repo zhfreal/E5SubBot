@@ -6,9 +6,6 @@ import (
 	"os"
 
 	"github.com/zhfreal/E5SubBot/bots"
-	"github.com/zhfreal/E5SubBot/config"
-	"github.com/zhfreal/E5SubBot/logger"
-	"github.com/zhfreal/E5SubBot/storage"
 )
 
 const (
@@ -60,13 +57,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	// do initialization
-	config.Init(conf)
-	logger.Init(config.LogIntoFile, config.LogDir, config.LogFile, config.LogLevel, config.MaxSize, config.MaxBackups, config.MaxAge)
-	// storage init must be done after logger init, because storage.Init() would using logger
-	storage.Init()
-	// self Init
-	bots.Init()
+	// do initialization, we need to do this before show_token
+	bots.Init(conf)
 	if show_token {
 		bots.ShowToken(accounts_for_show)
 		os.Exit(0)
@@ -75,5 +67,5 @@ func main() {
 	// PerformTasks()
 	// show logo
 	fmt.Print(logo)
-	bots.Start()
+	bots.Start(conf)
 }

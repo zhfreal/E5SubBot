@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
-	"github.com/zhfreal/E5SubBot/config"
 	"github.com/zhfreal/E5SubBot/logger"
 	ms "github.com/zhfreal/E5SubBot/microsoft"
 	"github.com/zhfreal/E5SubBot/storage"
@@ -179,7 +178,7 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		}
 	} else if this_msg_type == InitialMsg {
 		full_message := update.Message.Text
-		t_list := utils.SplitString(full_message)
+		t_list := utils.SplitStringByWhiteSpaces(full_message)
 		// empty message, print help
 		if len(t_list) == 0 {
 			helpHandler(ctx, b, update)
@@ -251,7 +250,7 @@ func bindAppHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	chat_id := update.Message.Chat.ID
 	// check if user is admin by it's chat_id
 	// non-admin just return
-	if !config.AdminSet.Has(chat_id) {
+	if !AdminSet.Has(chat_id) {
 		// b.SendMessage(ctx, &bot.SendMessageParams{
 		//     ChatID: chat_id,
 		//     Text:   "You are not admin, please contact admin to bind an APP.",
@@ -267,7 +266,7 @@ func bindAppHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 func bindAppHandlerFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
 	// check if user is admin by it's chat_id
 	// non-admin just return
-	if !config.AdminSet.Has(chat_id) {
+	if !AdminSet.Has(chat_id) {
 		// b.SendMessage(ctx, &bot.SendMessageParams{
 		//     ChatID: chat_id,
 		//     Text:   "You are not admin, please contact admin to bind an APP.",
@@ -450,7 +449,7 @@ func bindAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update) 
 	// check if app list is empty
 	if len(app_list) == 0 {
 		msg := "There is no app bound."
-		if config.AdminSet.Has(chat_id) {
+		if AdminSet.Has(chat_id) {
 			// admin
 			msg = fmt.Sprintf("%v.Please use /bindApp to bind an app", msg)
 		} else {
@@ -865,7 +864,7 @@ func unBindAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update
 func unBindAccountHandlerOther(ctx context.Context, b *bot.Bot, update *models.Update) {
 	// get usersconfig stat stat
 	chat_id := update.Message.Chat.ID
-	if config.AdminSet.Has(chat_id) {
+	if AdminSet.Has(chat_id) {
 		stat := storage.GetAppStatsOnlyBoundUser()
 		unbindAccountHandlerHelper(ctx, b, chat_id, stat)
 	}
@@ -1174,7 +1173,7 @@ func unbindUserOtherFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_
 func delAppHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	chat_id := update.Message.Chat.ID
 	// no-admin will do nothing
-	if !config.AdminSet.Has(chat_id) {
+	if !AdminSet.Has(chat_id) {
 		return
 	}
 	// get all apps which no user bound
@@ -1241,7 +1240,7 @@ func handleAPPDeletion(ctx context.Context, b *bot.Bot, key *MsgKey) {
 	app_alias := value.Extra.ExtraData2String
 	// check if user is admin
 	// non-admin will do nothing
-	if !config.AdminSet.Has(key.ChatID) {
+	if !AdminSet.Has(key.ChatID) {
 		return
 	}
 	// check this APP bound accounts or not
@@ -1291,7 +1290,7 @@ func appDeletionHelper(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 // admin only
 func delAppByFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, cmd_list []string) {
 	// no-admin will do nothing
-	if !config.AdminSet.Has(chat_id) {
+	if !AdminSet.Has(chat_id) {
 		return
 	}
 	if len(cmd_list) < 2 {
@@ -1333,7 +1332,7 @@ func showAPPsHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	if len(s) == 0 {
 		// this is admin
 		var t_msg string
-		if config.AdminSet.Has(chat_id) {
+		if AdminSet.Has(chat_id) {
 			t_msg = "No APPs yet. Please create one."
 		} else {
 			t_msg = "No APPs yet. Please contact with Admins."
@@ -1357,7 +1356,7 @@ func showAPPsHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	for _, k := range app_alias_list {
 		v := s[k]
 		time.Sleep(BotSendMsgInterval)
-		if config.AdminSet.Has(chat_id) {
+		if AdminSet.Has(chat_id) {
 			t_msg = fmt.Sprintf("%v\n    -  %v, Count: %v", t_msg, v.Alias, v.Bound)
 		} else {
 			t_msg = fmt.Sprintf("%v\n    -  %v", t_msg, v.Alias)
@@ -1376,11 +1375,11 @@ func showBoundUsersHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 	var s []*storage.AppsStats
 	var e error
 	// this is an admin
-	if config.AdminSet.Has(chat_id) {
-		s, e = storage.GetAllAppsStats()
+	if AdminSet.Has(chat_id) {
+		s, e = GetAllAppsStats()
 	} else {
 		// non-admin
-		s, e = storage.GetAppsStatsByTgId(chat_id)
+		s, e = GetAppsStatsByTgId(chat_id)
 	}
 	if len(s) == 0 || e != nil {
 		t_msg := "No users yet. Please /bind one."
@@ -1413,7 +1412,7 @@ func showBoundUsersHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 func statHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	tg_id := update.Message.Chat.ID
 	// get user's config
-	results, e := storage.GetAppsStatsByTgId(tg_id)
+	results, e := GetAppsStatsByTgId(tg_id)
 	if e != nil {
 		logger.Errorf("<StatHandler> failed to get user's config by id %v, failed with: %v\n", tg_id, e.Error())
 		b.SendMessage(ctx, &bot.SendMessageParams{
@@ -1430,11 +1429,11 @@ func statHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 func statAllHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	tg_id := update.Message.Chat.ID
 	// check tg_id is not admin, just return
-	if !config.AdminSet.Has(tg_id) {
+	if !AdminSet.Has(tg_id) {
 		return
 	}
 	// get all OpStats
-	results, e := storage.GetAllAppsStats()
+	results, e := GetAllAppsStats()
 	if e != nil {
 		logger.Errorf("<StatHandler> failed to get user's config by id %v, failed with: %v\n", tg_id, e.Error())
 		b.SendMessage(ctx, &bot.SendMessageParams{
@@ -1488,10 +1487,10 @@ func handleSendStats(ctx context.Context, b *bot.Bot, tg_id int64, results []*st
 func helpHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	tg_id := update.Message.Chat.ID
 	var t_msg string
-	if config.AdminSet.Has(tg_id) {
-		t_msg = fmt.Sprintf("%s\n%s", config.Notice, HelpContentAdmin)
+	if AdminSet.Has(tg_id) {
+		t_msg = fmt.Sprintf("%s\n%s", ConfigYamlObj.Notice, HelpContentAdmin)
 	} else {
-		t_msg = fmt.Sprintf("%s\n%s", config.Notice, HelpContent)
+		t_msg = fmt.Sprintf("%s\n%s", ConfigYamlObj.Notice, HelpContent)
 	}
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: tg_id,

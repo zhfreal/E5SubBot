@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-telegram/bot"
-	"github.com/robfig/cron/v3"
 	"github.com/zhfreal/E5SubBot/config"
 	"github.com/zhfreal/E5SubBot/logger"
 	ms "github.com/zhfreal/E5SubBot/microsoft"
@@ -26,7 +25,7 @@ func NotifyStats() {
 	}
 	// loop and send stats
 	for _, tg_id := range tg_list {
-		stats, e := storage.GetAppsStatsByTgId(tg_id)
+		stats, e := GetAppsStatsByTgId(tg_id)
 		if e != nil {
 			logger.Errorf("<NotifyStats> failed to perform storage.GetAppsStatsByTgId by tg_id %v, failed with: %v\n", tg_id, e.Error())
 			continue
@@ -62,10 +61,10 @@ func PerformTasks() {
 	var done chan bool
 	// tasks_count := 0
 	// init all chan
-	thread_count := utils.MinInt(t_len_users_config, config.MaxGoroutines)
-	in = make(chan *ms.Args, t_len_users_config)
-	out = make(chan *ms.ApiResult, t_len_users_config)
-	done = make(chan bool, t_len_users_config)
+	thread_count := utils.MinInt(t_len_users_config, ConfigYamlObj.Goroutine)
+	in = make(chan *ms.Args, t_len_users_config*3)
+	out = make(chan *ms.ApiResult, t_len_users_config*3)
+	done = make(chan bool, thread_count*2)
 	// put task
 	// add to wg
 	for _, uc := range all_users_config {
@@ -105,19 +104,34 @@ func PerformTasks() {
 				}
 				return
 			}
-			args := ms.Args{
-				Func:        ms.WorkingOnMails,
+			// args := ms.Args{
+			// 	Func:        ms.WorkingOnMails,
+			// 	ID:          user_id,
+			// 	AccessToken: t_token,
+			// }
+			// WorkingOnMails more specific to read, search, delete and send (add later)
+			wg_task.Add(3)
+			in <- &ms.Args{
+				Func:        ms.WorkingOnMailsRead,
 				ID:          user_id,
 				AccessToken: t_token,
 			}
-			in <- &args
-			wg_task.Add(1)
+			in <- &ms.Args{
+				Func:        ms.WorkingOnMailsSearch,
+				ID:          user_id,
+				AccessToken: t_token,
+			}
+			in <- &ms.Args{
+				Func:        ms.WorkingOnMailsDelete,
+				ID:          user_id,
+				AccessToken: t_token,
+			}
 		}(uc)
 	}
 
 	for i := 0; i < thread_count; i++ {
 		wg_con.Add(1)
-		go WorkingOnMsFromChan(in, out, done, &wg_con, config.ProxyObj.UrlStr)
+		go WorkingOnMsFromChan(in, out, done, &wg_con, ConfigYamlObj.Proxy)
 	}
 	// handle results
 
@@ -162,7 +176,7 @@ RESULT_LOPPER:
 		}
 	}
 
-	// put done for all threads after we receive all results
+	// put done for all threads after we receive all results,
 	for i := 0; i < thread_count; i++ {
 		done <- true
 	}
@@ -219,13 +233,4 @@ func WorkingOnMsFromChan(in chan *ms.Args, out chan *ms.ApiResult, done chan boo
 			time.Sleep(ms.APIInterval)
 		}
 	}
-}
-
-// initialize background cron tasks
-// this must be called after botTelegram initialized
-func InitBackgroundTasks() {
-	c := cron.New()
-	c.AddFunc(config.Cron, PerformTasks)
-	c.AddFunc(config.CronNotice, NotifyStats)
-	c.Start()
 }

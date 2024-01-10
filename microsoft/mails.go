@@ -501,6 +501,70 @@ func WorkingOnMails(id uint, access_token string, out chan *ApiResult, proxy str
 	}
 }
 
+// do mail read, include listUnreadMails() and readMailsFromAllFolders()
+func WorkingOnMailsRead(id uint, access_token string, out chan *ApiResult, proxy string) {
+	var s, f int = 0, 0
+	t_start_at := time.Now()
+	t_s, t_f := listUnreadMails(access_token, proxy, ReadMailsCount, config.MailReadUnread)
+	s += t_s
+	f += t_f
+	// time.Sleep(APIInterval)
+	t_s, t_f = readMailsFromAllFolders(access_token, proxy, config.MailReadUnread)
+	s += t_s
+	f += t_f
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailRead,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+	}
+}
+
+// do mail search
+func WorkingOnMailsSearch(id uint, access_token string, out chan *ApiResult, proxy string) {
+	var s, f int = 0, 0
+	t_start_at := time.Now()
+	t_s, t_f := searchAndLoopMails(access_token, config.MailAutoDeleteKeyWords, ReadMailsCount, proxy, config.MailReadUnread)
+	s += t_s
+	f += t_f
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailSearch,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+	}
+}
+
+// do mail deletion
+func WorkingOnMailsDelete(id uint, access_token string, out chan *ApiResult, proxy string) {
+	var s, f int = 0, 0
+	t_start_at := time.Now()
+	t_s, t_f := deleteOutlookMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
+	s += t_s
+	f += t_f
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailDelete,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+	}
+}
+
 // func DoListAllMails(id uint, access_token string, out chan ApiResult, proxy string) {
 // 	t_start_at := time.Now()
 // 	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy, false, false)

@@ -214,9 +214,21 @@ func MakeFolderAndSetPermission(path string) error {
 }
 
 // split string whit whitespace indentation: \s+
-func SplitString(s string) []string {
+// func SplitStringByWhiteSpaces(s string) []string {
+// 	s = strings.TrimSpace(s)
+// 	r := regexp.MustCompile(`\s+`)
+// 	t_list := r.Split(s, -1)
+// 	return t_list
+// }
+
+// split string whit whitespace indentation: \s+
+func SplitStringByWhiteSpaces(s string) []string {
+	return SplitStringByRegStr(s, "\\s+")
+}
+
+func SplitStringByRegStr(s, reg_str string) []string {
 	s = strings.TrimSpace(s)
-	r := regexp.MustCompile(`\s+`)
+	r := regexp.MustCompile(reg_str)
 	t_list := r.Split(s, -1)
 	return t_list
 }

@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"github.com/go-telegram/bot"
-	"github.com/zhfreal/E5SubBot/config"
 )
 
-func Start() {
+func Start(config_file string) {
 	var err error
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
@@ -22,14 +21,14 @@ func Start() {
 	}
 	// add socks5 proxy if it is set in config
 	// make proxied bot client base on config.ProxyObj
-	if config.ProxyObj != nil && config.ProxyObj.Url != nil {
+	if ProxyObj != nil && ProxyObj.UrlStr != "" {
 		transport := &http.Transport{
-			Proxy: http.ProxyURL(config.ProxyObj.Url),
+			Proxy: http.ProxyURL(ProxyObj.Url),
 		}
 		opts = append(opts, bot.WithHTTPClient(time.Minute, &http.Client{Transport: transport}))
 	}
 
-	botTelegram, err = bot.New(config.BotToken, opts...)
+	botTelegram, err = bot.New(ConfigYamlObj.BotToken, opts...)
 	if nil != err {
 		// panics for the sake of simplicity.
 		// you should handle this error properly in your code.
@@ -64,8 +63,10 @@ func Start() {
 	wg.Add(1)
 	go botTelegram.Start(ctx)
 	// init background task
-	// this must be called after bot start
-	InitBackgroundTasks()
+	// this must be init cronjob after bot start
+	init_background_tasks(ConfigYamlObj.CronConf)
+	// setup monitor to monitor the change of config file
+	monitor_config_change(config_file)
 	// PerformTasks()
 	wg.Wait()
 }

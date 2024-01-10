@@ -26,6 +26,17 @@ const (
 
 const (
 	OpTypeMail uint = iota + 1
+	OpTypeMailRead
+	OpTypeMailSearch
+	OpTypeMailSend
+	OpTypeMailDelete
+)
+
+const (
+	OpTypeFile uint = iota + 9 + 1
+	OpTypeFileDownload
+	OpTypeFileSearch
+	OpTypeFileUpload
 )
 
 var (
@@ -54,8 +65,12 @@ var (
 		"User.ReadWrite",
 	}
 	myRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-	OPs    = map[uint]string{
-		OpTypeMail: "Mails",
+	Ops    = map[uint]string{
+		OpTypeMail:       "Mails",
+		OpTypeMailRead:   "MailsRead",
+		OpTypeMailSearch: "MailsSearch",
+		OpTypeMailSend:   "MailsSend",
+		OpTypeMailDelete: "MailsDelete",
 	}
 )
 
