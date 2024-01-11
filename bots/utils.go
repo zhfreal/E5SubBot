@@ -62,6 +62,8 @@ func ShowToken(account string) {
 		fmt.Print("No data found in database!")
 		return
 	}
+	// print title
+	fmt.Printf("%s\t%s\t%s\n", "Email", "ExpiresAt", "AccessToken")
 	// check access token expired or not, if expired, then refresh it;
 	for _, uc := range uc_list {
 		var access_token, refresh_token string
