@@ -149,7 +149,7 @@ RESULT_LOPPER:
 				OpID:     r.OpID,
 				Success:  r.S,
 				Failure:  r.F,
-				LastTime: r.StartTime.Unix(),
+				LastTime: r.EndTime.Unix(),
 			}
 			stats = append(stats, t_s)
 			t_count++
