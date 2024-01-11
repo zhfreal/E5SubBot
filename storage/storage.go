@@ -2,6 +2,8 @@ package storage
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/zhfreal/E5SubBot/config"
@@ -17,7 +19,7 @@ import (
 
 var DB *gorm.DB
 
-func Init(db_config *config.ConfigDb) {
+func Init(workspace string, db_config *config.ConfigDb) {
 	var (
 		err  error
 		dial gorm.Dialector
@@ -40,7 +42,19 @@ func Init(db_config *config.ConfigDb) {
 
 		dial = mysql.Open(dsn)
 	case "sqlite":
-		dial = sqlite.Open(db_config.Sqlite.DBFile)
+		db_file := db_config.Sqlite.DBFile
+		// check db_file exists or not
+		file_info, err := os.Stat(db_file)
+		if err == nil {
+			if file_info.IsDir() {
+				logger.Fatalln("db.sqlite.dbfile is a directory!")
+				os.Exit(1)
+			}
+		} else {
+			// db.sqlite.dbfile not exists, create it from workspace
+			db_file = filepath.Join(workspace, db_file)
+		}
+		dial = sqlite.Open(db_file)
 	}
 
 	if dial == nil {

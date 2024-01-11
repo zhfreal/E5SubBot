@@ -215,7 +215,7 @@ func Init(conf string) {
 		ConfigYamlObj.Log.MaxBackups,
 		ConfigYamlObj.Log.MaxAge)
 	// storage init must be done after logger init, because storage.Init() would using logger
-	storage.Init(ConfigYamlObj.DB)
+	storage.Init(ConfigYamlObj.Workspace, ConfigYamlObj.DB)
 	// do cache initialization
 	AuthCachedObj = NewAuthCache()
 	BindCachedObj = NewBindCache()
