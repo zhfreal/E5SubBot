@@ -166,7 +166,7 @@ RESULT_LOPPER:
 			details = append(details, d)
 			// print debug log about this result
 			logger.Debugf("<PerformTasks> got result for user - %v, op - %v, s/f - %v/%v, finish at - %v, duration - %v\n", r.ID, r.OpID, r.S, r.F, r.EndTime.Format("15:04:05"), r.Duration)
-			logger.Debugf("<PerformTasks> %v/%v, %v\n", t_count, wg_task.GetCount(), r)
+			logger.Debugf("<PerformTasks> %v/%v, %v\n", wg_task.GetCount(), t_count, r)
 		default:
 			// when we get enough results and task producer all finished, then break the looper, we are finishing
 			if wg_task.GetCount() == 0 && wg_prd.GetCount() == 0 {
