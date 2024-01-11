@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"math/rand"
 	"time"
+
+	"github.com/zhfreal/E5SubBot/config"
 )
 
 const (
@@ -103,7 +105,7 @@ type ApiResult struct {
 }
 
 type Args struct {
-	Func        func(id uint, access_token string, out chan *ApiResult, proxy string)
+	Func        func(id uint, access_token string, out chan *ApiResult, proxy string, ms_conf *config.ConfigMs)
 	ID          uint // UsersConfig's ID, indicate which user in storage, just label this args, no actual usage in Func()
 	AccessToken string
 }

@@ -8,41 +8,41 @@ import (
 )
 
 var (
-	// BotToken           string
-	// Socks5             string
-	// Proxy              string
-	// ProxyHTTPSInsecure bool
-	// BindMaxNum    int
-	// MaxGoroutines int
-	// MaxErrTimes int
-	// Cron       string
-	// CronNotice string
-	// Notice   string
-	// Admins   []int64
-	// AdminSet *AdminList
-	// DB       string
-	// Mysql    *mysqlConfig
-	// Sqlite   *sqliteConfig
-	// ProxyObj *ProxyType
-	// this is available for other package to search and delete mails
-	// it will be modified by config.yaml during initialization
-	// ms.mail.auto-delete.enabled
-	MailAutoDeleteEnabled bool = true
-	// ms.mail.auto-delete.keyword
-	MailAutoDeleteKeyWords []string = []string{"George Best quote"}
-	// ms.mail.auto-delete.quantity
-	MailAutoDeleteQuantity int = 20
-	// TelegramBot        *bot.Bot
-	MailReadUnread bool = false // read unread mails
+// BotToken           string
+// Socks5             string
+// Proxy              string
+// ProxyHTTPSInsecure bool
+// BindMaxNum    int
+// MaxGoroutines int
+// MaxErrTimes int
+// Cron       string
+// CronNotice string
+// Notice   string
+// Admins   []int64
+// AdminSet *AdminList
+// DB       string
+// Mysql    *mysqlConfig
+// Sqlite   *sqliteConfig
+// ProxyObj *ProxyType
+// this is available for other package to search and delete mails
+// it will be modified by config.yaml during initialization
+// ms.mail.auto-delete.enabled
+// 	MailAutoDeleteEnabled bool = true
+// 	// ms.mail.auto-delete.keyword
+// 	MailAutoDeleteKeyWords []string = []string{"George Best quote"}
+// 	// ms.mail.auto-delete.quantity
+// 	MailAutoDeleteQuantity int = 20
+// 	// TelegramBot        *bot.Bot
+// 	MailReadUnread bool = false // read unread mails
 
-	// for logging
-	LogIntoFile bool   = true
-	LogFile     string = "latest.log"
-	Workspace   string = "/var/lib/e5bot/"
-	MaxSize     int    = 5      // single file max size in MiB
-	MaxBackups  int    = 20     // max quantity of log files to keep
-	MaxAge      int    = 7      // max days of log files to keep
-	LogLevel    string = "warn" // debug, info, warn, error, fatal, panic
+// // for logging
+// LogIntoFile bool   = true
+// LogFile     string = "latest.log"
+// Workspace   string = "/var/lib/e5bot/"
+// MaxSize     int    = 5      // single file max size in MiB
+// MaxBackups  int    = 20     // max quantity of log files to keep
+// MaxAge      int    = 7      // max days of log files to keep
+// LogLevel    string = "warn" // debug, info, warn, error, fatal, panic
 )
 
 type AdminList struct {
@@ -210,9 +210,11 @@ type ConfigReadMails struct {
 	ReadUnread bool `yaml:"readunread" default:"true"`
 }
 type ConfigSearchMails struct {
-	Enabled    bool `yaml:"enabled" default:"true"`
-	Quantity   int  `yaml:"quantity" default:"20"`
-	ReadUnread bool `yaml:"readunread" default:"true"`
+	Enabled    bool     `yaml:"enabled" default:"true"`
+	Keyword    string   `yaml:"keyword"`
+	Keywords   []string `yaml:"keywords"`
+	Quantity   int      `yaml:"quantity" default:"20"`
+	ReadUnread bool     `yaml:"readunread" default:"true"`
 }
 type ConfigAutoSend struct {
 	Enabled         bool   `yaml:"enabled" default:"false"`

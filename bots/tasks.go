@@ -131,7 +131,7 @@ func PerformTasks() {
 
 	for i := 0; i < thread_count; i++ {
 		wg_con.Add(1)
-		go WorkingOnMsFromChan(in, out, done, &wg_con, ConfigYamlObj.Proxy)
+		go WorkingOnMsFromChan(in, out, done, &wg_con, ConfigYamlObj.Proxy, ConfigYamlObj.MS)
 	}
 	// handle results
 
@@ -213,17 +213,17 @@ RESULT_LOPPER:
 	// update storage
 	storage.UpdateStatsByStats(t_stats_map)
 	// just store op_details and task_records when debug on
-	if config.LogLevel == "debug" {
+	if ConfigYamlObj.Log.LogLevel == "debug" {
 		storage.SaveOpDetails(details)
 		storage.SaveTaskRecords(task_records)
 	}
 }
 
-func WorkingOnMsFromChan(in chan *ms.Args, out chan *ms.ApiResult, done chan bool, wg *WaitGroupCount, proxy string) {
+func WorkingOnMsFromChan(in chan *ms.Args, out chan *ms.ApiResult, done chan bool, wg *WaitGroupCount, proxy string, ms_conf *config.ConfigMs) {
 	for {
 		select {
 		case args := <-in:
-			args.Func(args.ID, args.AccessToken, out, proxy)
+			args.Func(args.ID, args.AccessToken, out, proxy, ConfigYamlObj.MS)
 		case ok := <-done:
 			if ok {
 				wg.Done()

@@ -467,24 +467,24 @@ func listUnreadMails(access_token, proxy string, count int, read_unread bool) (i
 	return t_s, t_f
 }
 
-func WorkingOnMails(id uint, access_token string, out chan *ApiResult, proxy string) {
+func WorkingOnMails(id uint, access_token string, out chan *ApiResult, proxy string, ms_config *config.ConfigMs) {
 	var s, f int = 0, 0
 	t_start_at := time.Now()
-	t_s, t_f := listUnreadMails(access_token, proxy, ReadMailsCount, config.MailReadUnread)
+	t_s, t_f := listUnreadMails(access_token, proxy, ms_config.Mail.ReadMails.Quantity, ms_config.Mail.ReadMails.Enabled)
 	s += t_s
 	f += t_f
 	// time.Sleep(APIInterval)
-	t_s, t_f = readMailsFromAllFolders(access_token, proxy, config.MailReadUnread)
+	t_s, t_f = readMailsFromAllFolders(access_token, proxy, ms_config.Mail.ReadMails.Enabled)
 	s += t_s
 	f += t_f
 	// time.Sleep(APIInterval)
-	t_s, t_f = searchAndLoopMails(access_token, config.MailAutoDeleteKeyWords, ReadMailsCount, proxy, config.MailReadUnread)
+	t_s, t_f = searchAndLoopMails(access_token, ms_config.Mail.SearchMails.Keywords, ms_config.Mail.SearchMails.Quantity, proxy, ms_config.Mail.SearchMails.ReadUnread)
 	s += t_s
 	f += t_f
 	// do deleteOutlookMails just according the config file
-	if config.MailAutoDeleteEnabled {
+	if ms_config.Mail.AutoDeleteMails.Enabled {
 		// time.Sleep(APIInterval)
-		t_s, t_f = deleteOutlookMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
+		t_s, t_f = deleteOutlookMails(access_token, ms_config.Mail.AutoDeleteMails.Keywords, ms_config.Mail.AutoDeleteMails.Quantity, proxy)
 		s += t_s
 		f += t_f
 	}
@@ -502,14 +502,14 @@ func WorkingOnMails(id uint, access_token string, out chan *ApiResult, proxy str
 }
 
 // do mail read, include listUnreadMails() and readMailsFromAllFolders()
-func WorkingOnMailsRead(id uint, access_token string, out chan *ApiResult, proxy string) {
+func WorkingOnMailsRead(id uint, access_token string, out chan *ApiResult, proxy string, ms_config *config.ConfigMs) {
 	var s, f int = 0, 0
 	t_start_at := time.Now()
-	t_s, t_f := listUnreadMails(access_token, proxy, ReadMailsCount, config.MailReadUnread)
+	t_s, t_f := listUnreadMails(access_token, proxy, ms_config.Mail.ReadMails.Quantity, ms_config.Mail.ReadMails.Enabled)
 	s += t_s
 	f += t_f
 	// time.Sleep(APIInterval)
-	t_s, t_f = readMailsFromAllFolders(access_token, proxy, config.MailReadUnread)
+	t_s, t_f = readMailsFromAllFolders(access_token, proxy, ms_config.Mail.ReadMails.Enabled)
 	s += t_s
 	f += t_f
 	t_end_at := time.Now()
@@ -526,10 +526,10 @@ func WorkingOnMailsRead(id uint, access_token string, out chan *ApiResult, proxy
 }
 
 // do mail search
-func WorkingOnMailsSearch(id uint, access_token string, out chan *ApiResult, proxy string) {
+func WorkingOnMailsSearch(id uint, access_token string, out chan *ApiResult, proxy string, ms_config *config.ConfigMs) {
 	var s, f int = 0, 0
 	t_start_at := time.Now()
-	t_s, t_f := searchAndLoopMails(access_token, config.MailAutoDeleteKeyWords, ReadMailsCount, proxy, config.MailReadUnread)
+	t_s, t_f := searchAndLoopMails(access_token, ms_config.Mail.SearchMails.Keywords, ms_config.Mail.SearchMails.Quantity, proxy, ms_config.Mail.SearchMails.ReadUnread)
 	s += t_s
 	f += t_f
 	t_end_at := time.Now()
@@ -546,10 +546,10 @@ func WorkingOnMailsSearch(id uint, access_token string, out chan *ApiResult, pro
 }
 
 // do mail deletion
-func WorkingOnMailsDelete(id uint, access_token string, out chan *ApiResult, proxy string) {
+func WorkingOnMailsDelete(id uint, access_token string, out chan *ApiResult, proxy string, ms_config *config.ConfigMs) {
 	var s, f int = 0, 0
 	t_start_at := time.Now()
-	t_s, t_f := deleteOutlookMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
+	t_s, t_f := deleteOutlookMails(access_token, ms_config.Mail.AutoDeleteMails.Keywords, ms_config.Mail.AutoDeleteMails.Quantity, proxy)
 	s += t_s
 	f += t_f
 	t_end_at := time.Now()

@@ -191,7 +191,7 @@ func getAdmins() []int64 {
 // this must be called after botTelegram initialized
 func init_background_tasks(cron_conf *config.ConfigCron) {
 	if cron_conf.Enabled {
-		CronObj := cron.New()
+		CronObj = cron.New()
 		CronObj.AddFunc(cron_conf.Task, PerformTasks)
 		CronObj.AddFunc(cron_conf.Notice, NotifyStats)
 		CronObj.Start()
@@ -222,4 +222,6 @@ func Init(conf string) {
 	UsersConfigCacheObj = NewUsersConfigCache()
 	// AdminList
 	AdminSet = config.NewAdminList(getAdmins())
+	// setup monitor to monitor the change of config file
+	monitor_config_change(conf)
 }

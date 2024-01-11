@@ -61,12 +61,14 @@ func Start(config_file string) {
 	// to void potential error, we need run botTelegram.Start() in goroutine
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go botTelegram.Start(ctx)
+	go func() {
+		botTelegram.Start(ctx)
+		wg.Done()
+	}()
 	// init background task
 	// this must be init cronjob after bot start
 	init_background_tasks(ConfigYamlObj.CronConf)
-	// setup monitor to monitor the change of config file
-	monitor_config_change(config_file)
+	// debug only
 	// PerformTasks()
 	wg.Wait()
 }
