@@ -12,6 +12,13 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+const (
+	LogLvlDebug string = "debug"
+	LogLvlInfo  string = "info"
+	LogLvlWarn  string = "warn"
+	LogLvlError string = "error"
+)
+
 // 日志切割设置
 // func getLogWriter(log_dir string) zapcore.WriteSyncer {
 // 	lumberJackLogger := &lumberjack.Logger{
@@ -77,13 +84,13 @@ func Init(log_into_file bool, log_dir, log_file, log_level string, max_size, max
 	log_level = strings.ToLower(log_level)
 	var zap_log_level zapcore.Level
 	switch log_level {
-	case "debug":
+	case LogLvlDebug:
 		zap_log_level = zapcore.DebugLevel
-	case "info":
+	case LogLvlInfo:
 		zap_log_level = zapcore.InfoLevel
-	case "warn":
+	case LogLvlWarn:
 		zap_log_level = zapcore.WarnLevel
-	case "error":
+	case LogLvlError:
 		zap_log_level = zapcore.ErrorLevel
 	default:
 		zap_log_level = zapcore.WarnLevel

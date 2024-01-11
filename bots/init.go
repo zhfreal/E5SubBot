@@ -43,7 +43,7 @@ func read_config(file_path string) (*config.ConfigYaml, error) {
 
 	// print deprecated warning info
 	if len(config_yaml.Socks5) > 0 {
-		fmt.Println("<Init> WARNING: socks5 is deprecated, use \"Proxy: socks5://127.0.0.1:1080\" or \"Proxy: http://127.0.0.1:8080\" or \"Proxy: https://example.com:8443\" instead")
+		logger.Warnln("<Init-read-config> WARNING: socks5 is deprecated, use \"Proxy: socks5://127.0.0.1:1080\" or \"Proxy: http://127.0.0.1:8080\" or \"Proxy: https://example.com:8443\" instead")
 		if len(config_yaml.Proxy) == 0 {
 			config_yaml.Proxy = config_yaml.Socks5
 			if !strings.HasPrefix(config_yaml.Proxy, "socks5://") {
@@ -62,7 +62,7 @@ func read_config(file_path string) (*config.ConfigYaml, error) {
 	switch config_yaml.DB.DBType {
 	case "mysql":
 		if config_yaml.DB.Mysql == nil {
-			err = fmt.Errorf("<Init> FATAL: mysql settings is empty, please set \"DB.mysql\"")
+			err = fmt.Errorf("<Init-read-config> FATAL: mysql settings is empty, please set \"DB.mysql\"")
 			return nil, err
 		}
 		if config_yaml.DB.Mysql.Host == "" ||
@@ -71,19 +71,31 @@ func read_config(file_path string) (*config.ConfigYaml, error) {
 			config_yaml.DB.Mysql.User == "" ||
 			config_yaml.DB.Mysql.Password == "" ||
 			config_yaml.DB.Mysql.Database == "" {
-			err = fmt.Errorf("<Init> FATAL: mysql settings is invalid, please check \"DB.mysql\"")
+			err = fmt.Errorf("<Init-read-config> FATAL: mysql settings is invalid, please check \"DB.mysql\"")
 			return nil, err
 		}
 	case "sqlite":
 		// detect sqlite.db db file
 		if config_yaml.DB.Sqlite == nil {
-			err = fmt.Errorf("<Init> FATAL: sqlite settings is empty, please set \"DB.sqlite\"")
+			err = fmt.Errorf("<Init-read-config> FATAL: sqlite settings is empty, please set \"DB.sqlite\"")
 			return nil, err
 		}
 		if config_yaml.DB.Sqlite.DBFile == "" {
-			err = fmt.Errorf("<Init> FATAL: sqlite settings is invalid, please check \"DB.sqlite\"")
+			err = fmt.Errorf("<Init-read-config> FATAL: sqlite settings is invalid, please check \"DB.sqlite\"")
 			return nil, err
 		}
+	}
+
+	// lower-case and check ConfigYaml.Log.LogLevel, if it's not in debug, info, warn, error
+	// then send a warn and set it to LogLvlWarn
+	config_yaml.Log.LogLevel = strings.ToLower(config_yaml.Log.LogLevel)
+	if config_yaml.Log.LogLevel != logger.LogLvlDebug &&
+		config_yaml.Log.LogLevel != logger.LogLvlInfo &&
+		config_yaml.Log.LogLevel != logger.LogLvlWarn &&
+		config_yaml.Log.LogLevel != logger.LogLvlError {
+		logger.Warnf("<Init-read-config> WARNING log.loglevel %v is invalid, must be in debug, info, warn, error.", config_yaml.Log.LogLevel)
+		logger.Warnln(" Set it to default as level warn!")
+		config_yaml.Log.LogLevel = logger.LogLvlWarn
 	}
 
 	return &config_yaml, nil
@@ -203,7 +215,7 @@ func Init(conf string) {
 	var err error
 	ConfigYamlObj, err = read_config(conf)
 	if err != nil {
-		fmt.Printf("read_config error: %v\n", err)
+		logger.Errorf("read_config error: %v\n", err.Error())
 		os.Exit(1)
 	}
 	// init logger
