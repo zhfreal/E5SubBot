@@ -61,7 +61,8 @@ func PerformTasks() {
 	var done chan bool
 	// tasks_count := 0
 	// init all chan
-	thread_count := utils.MinInt(t_len_users_config, ConfigYamlObj.Goroutine)
+	// make first parameter into t_len_users_config*<amount of counts> to make the limitation higher
+	thread_count := utils.MinInt(t_len_users_config*3, ConfigYamlObj.Goroutine)
 	in = make(chan *ms.Args, t_len_users_config*3)
 	out = make(chan *ms.ApiResult, t_len_users_config*3)
 	done = make(chan bool, thread_count*2)
