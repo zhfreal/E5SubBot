@@ -615,7 +615,7 @@ func getFilteredMails(folder_id, access_token, keyword *string, count int, proxy
 	var s, f int = 0, 0
 	var t_result_slice []gjson.Result
 	// quote the keyword
-	var params map[string]any = map[string]any{"$search": fmt.Sprintf("\"%v\"", *keyword)}
+	var params map[string]any = map[string]any{"$search": fmt.Sprintf("\"body:%v\"", *keyword)}
 	t_top := count
 	if t_top <= 0 {
 		t_top = ReadMailsCount
