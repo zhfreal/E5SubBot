@@ -91,7 +91,7 @@ var (
 	AuthCachedObj *AuthCache
 	// bind message caches
 	BindCachedObj *BindCache
-	// locker for user account, run task and delete account must accquire this locker
+	// locker for user account, run task and delete account must acquire this locker
 	UsersConfigCacheObj *UsersConfigCache
 	// cache for refresh failure counter
 )

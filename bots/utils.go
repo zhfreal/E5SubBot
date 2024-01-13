@@ -22,7 +22,7 @@ func GetToken(uc *storage.Users) (string, bool, error) {
 	expiresAt := time.Unix(t_expire_at, 0).Add(-time.Duration(RefreshTokenBefore) * time.Second)
 	t_time_now := time.Now()
 	if expiresAt.Before(t_time_now) || len(uc.RefreshToken) == 0 {
-		access_token, refresh_token, expire_in, err = microsoft.RefreshToken(context.Background(), uc.MsId, uc.RefreshToken)
+		access_token, refresh_token, expire_in, err = microsoft.RefreshToken(context.Background(), &uc.MsId, &uc.RefreshToken)
 		if err != nil {
 			// failed to refresh
 			failed_to_refreshed = true
@@ -73,7 +73,7 @@ func ShowToken(account string) {
 		expiresAt := time.Unix(t_expire_at, 0)
 		t_time_now := time.Now()
 		if expiresAt.Before(t_time_now) || len(uc.RefreshToken) == 0 {
-			access_token, refresh_token, expire_in, err = microsoft.RefreshToken(context.Background(), uc.MsId, uc.RefreshToken)
+			access_token, refresh_token, expire_in, err = microsoft.RefreshToken(context.Background(), &uc.MsId, &uc.RefreshToken)
 			if err != nil {
 				continue
 			} else {

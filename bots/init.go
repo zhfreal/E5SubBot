@@ -3,6 +3,7 @@ package bots
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -12,8 +13,11 @@ import (
 	"github.com/spf13/viper"
 	"github.com/zhfreal/E5SubBot/config"
 	"github.com/zhfreal/E5SubBot/logger"
+	ms "github.com/zhfreal/E5SubBot/microsoft"
 	"github.com/zhfreal/E5SubBot/storage"
 )
+
+var vp *viper.Viper
 
 func read_config(file_path string) (*config.ConfigYaml, error) {
 	var config_yaml config.ConfigYaml
@@ -27,17 +31,17 @@ func read_config(file_path string) (*config.ConfigYaml, error) {
 	}
 	// check the mode
 	if info.IsDir() {
-		viper.AddConfigPath(file_path)
-		viper.SetConfigName("config")
+		vp.AddConfigPath(file_path)
+		vp.SetConfigName("config")
 	} else {
-		viper.SetConfigFile(file_path)
+		vp.SetConfigFile(file_path)
 	}
 	// read config
-	if err := viper.ReadInConfig(); err != nil {
+	if err := vp.ReadInConfig(); err != nil {
 		return nil, err
 	}
-	// unmarshal using viper
-	if err := viper.Unmarshal(&config_yaml); err != nil {
+	// unmarshal using vp
+	if err := vp.Unmarshal(&config_yaml); err != nil {
 		return nil, err
 	}
 
@@ -101,12 +105,37 @@ func read_config(file_path string) (*config.ConfigYaml, error) {
 	return &config_yaml, nil
 }
 
+// read ms.mail.autosendmails.template and ms.mail.autosendmails.templatecontent
+func read_mail_template() {
+	template := vp.GetString("ms.mail.autosendmails.template")
+	template_content := ""
+	if len(template) > 0 {
+		t_byts, err := os.ReadFile(template)
+		if err != nil {
+			t_path := filepath.Join(ConfigYamlObj.Workspace, template)
+			t_byts, _ = os.ReadFile(t_path)
+		}
+		t_template_content := string(t_byts)
+		if len(t_template_content) > 0 {
+			template_content = t_template_content
+		}
+	}
+	if len(template_content) == 0 {
+		template_content = vp.GetString("ms.mail.autosendmails.templatecontent")
+	}
+	if len(template_content) == 0 {
+		template_content = ms.MailTemplate
+	}
+	ConfigYamlObj.MS.Mail.AutoSendMails.Template = template
+	ConfigYamlObj.MS.Mail.AutoSendMails.TemplateContent = template_content
+}
+
 func monitor_config_change(file_path string) {
-	viper.OnConfigChange(func(e fsnotify.Event) {
+	vp.OnConfigChange(func(e fsnotify.Event) {
 		logger.Warnf("Config file changed:\n", e.Name)
 		new_config, err := read_config(file_path)
 		if err != nil {
-			logger.Warnf("failed to reload config error, failed with: %v\n", err)
+			logger.Warnf("failed to reload config, failed with: %v\n", err)
 			return
 		}
 		// bot_token changed, warning to restart daemon to take effect
@@ -185,8 +214,16 @@ func monitor_config_change(file_path string) {
 		if new_config.Workspace != ConfigYamlObj.Workspace {
 			logger.Warnf("Workspace changed, please restart daemon to take effect\n")
 		}
+		// copy new_config.MS to ConfigYamlObj.MS
+		*(ConfigYamlObj.MS.Mail.ReadMails) = *(new_config.MS.Mail.ReadMails)
+		*(ConfigYamlObj.MS.Mail.SearchMails) = *(new_config.MS.Mail.SearchMails)
+		*(ConfigYamlObj.MS.Mail.AutoSendMails) = *(new_config.MS.Mail.AutoSendMails)
+		*(ConfigYamlObj.MS.Mail.AutoDeleteMails) = *(new_config.MS.Mail.AutoDeleteMails)
+		// resolve template and templatecontent
+		read_mail_template()
 	})
-	viper.WatchConfig()
+
+	vp.WatchConfig()
 }
 
 func getAdmins() []int64 {
@@ -211,6 +248,8 @@ func init_background_tasks(cron_conf *config.ConfigCron) {
 }
 
 func Init(conf string) {
+	// init vp
+	vp = viper.New()
 	// read config
 	var err error
 	ConfigYamlObj, err = read_config(conf)
@@ -235,5 +274,6 @@ func Init(conf string) {
 	// AdminList
 	AdminSet = config.NewAdminList(getAdmins())
 	// setup monitor to monitor the change of config file
-	monitor_config_change(conf)
+	// this should be run in goroutine, because vp.WatchConfig() will block the main goroutine
+	go monitor_config_change(conf)
 }

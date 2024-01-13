@@ -221,6 +221,7 @@ type ConfigAutoSend struct {
 	Template        string `yaml:"template"`
 	TemplateContent string `yaml:"templatecontent"`
 	TemplateType    string `yaml:"templatetype"`
+	Subject         string `yaml:"subject"`
 }
 type ConfigLog struct {
 	LogIntoFile bool   `yaml:"logintofile" default:"true"`

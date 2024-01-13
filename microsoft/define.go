@@ -2,6 +2,7 @@ package microsoft
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -9,21 +10,8 @@ import (
 )
 
 const (
-	Tenant         string        = "organizations"
-	AuthBase       string        = "https://login.microsoftonline.com"
-	OAuth          string        = "oauth2/v2.0"
-	OAuthDC        string        = "devicecode"
-	OAuthToken     string        = "token"
-	GraphUrl       string        = "https://graph.microsoft.com"
-	GraphVer       string        = "v1.0"
-	OpGet          string        = "GET"
-	OpPost         string        = "POST"
-	OpDelete       string        = "DELETE"
 	APIInterval    time.Duration = 50 * time.Millisecond // in milliseconds
 	ReadMailsCount int           = 20
-	ODataNextLink  string        = "@odata\\.nextLink" // using github.com/tidwall/gjson to search path, the "." must be escaped
-	ODataContext   string        = "@odata\\.context"  // using github.com/tidwall/gjson to search path, the "." must be escaped
-	// const_timeout_request_device_code        = 10 // timeout in seconds for request device code
 )
 
 const (
@@ -39,6 +27,22 @@ const (
 	OpTypeFileDownload
 	OpTypeFileSearch
 	OpTypeFileUpload
+)
+
+var (
+	Tenant        string = "organizations"
+	AuthBase      string = "https://login.microsoftonline.com"
+	OAuth         string = "oauth2/v2.0"
+	OAuthDC       string = "devicecode"
+	OAuthToken    string = "token"
+	GraphUrl      string = "https://graph.microsoft.com"
+	GraphVer      string = "v1.0"
+	OpGet         string = "GET"
+	OpPost        string = "POST"
+	OpDelete      string = "DELETE"
+	ODataNextLink string = "@odata\\.nextLink" // using github.com/tidwall/gjson to search path, the "." must be escaped
+	ODataContext  string = "@odata\\.context"  // using github.com/tidwall/gjson to search path, the "." must be escaped
+	// timeout_request_device_code        = 10 // timeout in seconds for request device code
 )
 
 var (
@@ -74,6 +78,10 @@ var (
 		OpTypeMailSend:   "MailsSend",
 		OpTypeMailDelete: "MailsDelete",
 	}
+	MailContentHtml     string = "html"
+	MailBoxFolderInBox  string = "Inbox"
+	MailBoxFolderSent   string = "Sent Items"
+	MailBoxFolderDrafts string = "Drafts"
 )
 
 type TokenCache struct {
@@ -101,13 +109,18 @@ type ApiResult struct {
 	StartTime *time.Time // start time in unix time format
 	Duration  int64      // Operation in millisecond
 	EndTime   *time.Time // end time in unix time format
-	Arg       *Args      // if the operation just a middleware, need pass this to later procession
+	Task      *Task      // if the operation just a middleware, need pass this to later process, not used right now
+}
+
+type Task struct {
+	Func func(id uint, access_token *string, out chan *ApiResult, proxy *string, ms_conf *config.ConfigMs, to *string)
+	Args *Args
 }
 
 type Args struct {
-	Func        func(id uint, access_token string, out chan *ApiResult, proxy string, ms_conf *config.ConfigMs)
 	ID          uint // UsersConfig's ID, indicate which user in storage, just label this args, no actual usage in Func()
-	AccessToken string
+	AccessToken *string
+	To          *string // Send to this address, used by send
 }
 
 func detect_error(data []byte) []byte {
@@ -207,7 +220,7 @@ type RequestSearchData struct {
 
 /////////////////////////////////////////////////////////////
 
-func NewRequestsData(keyword string, from, size int) *RequestSearchData {
+func NewRequestsData(keyword *string, from, size int) *RequestSearchData {
 	r := &RequestSearchData{}
 	// assign values to its fields
 	r.ReqDataList = []ReqSearchData{
@@ -216,7 +229,7 @@ func NewRequestsData(keyword string, from, size int) *RequestSearchData {
 			Query: struct {
 				QueryString string `json:"queryString"`
 			}{
-				QueryString: keyword,
+				QueryString: *keyword,
 			},
 			From: from,
 			Size: size,
@@ -225,7 +238,63 @@ func NewRequestsData(keyword string, from, size int) *RequestSearchData {
 	return r
 }
 
-func NewRequestsDataString(keyword string, from, size int) string {
+func NewRequestsDataString(keyword *string, from, size int) string {
 	b_s, _ := json.Marshal(NewRequestsData(keyword, from, size))
 	return string(b_s)
 }
+
+// ////////////////////////////////////////////////////////////
+// mail's content for send data struct
+// ////////////////////////////////////////////////////////////
+type EmailContent struct {
+	Message         *MailSendMessage `json:"message"`
+	SaveToSentItems string           `json:"saveToSentItems"`
+}
+
+type MailSendMessage struct {
+	Subject      string          `json:"subject"`
+	Body         *BodyContent    `json:"body"`
+	ToRecipients []*ToRecipients `json:"toRecipients"`
+}
+
+type BodyContent struct {
+	ContentType string `json:"contentType"`
+	Content     string `json:"content"`
+}
+
+type ToRecipients struct {
+	EmailAddress *EmailAddress `json:"emailAddress"`
+}
+
+type EmailAddress struct {
+	Address string `json:"address"`
+}
+
+func NewEmailContent(subject, contentType, content, to *string, saveToSentItems bool) *EmailContent {
+	e := &EmailContent{}
+	e.Message = &MailSendMessage{
+		Subject: *subject,
+		Body: &BodyContent{
+			ContentType: *contentType,
+			Content:     *content,
+		},
+		ToRecipients: []*ToRecipients{
+			{
+				EmailAddress: &EmailAddress{
+					Address: *to,
+				},
+			},
+		},
+	}
+	e.SaveToSentItems = fmt.Sprintf("%t", saveToSentItems)
+	return e
+}
+
+func NewEmailContentString(subject, contentType, content, to *string, saveToSentItems bool) string {
+	e := NewEmailContent(subject, contentType, content, to, saveToSentItems)
+	b_s, _ := json.Marshal(e)
+	return string(b_s)
+}
+
+// ////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////

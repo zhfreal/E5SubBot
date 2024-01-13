@@ -67,8 +67,8 @@ func Start(config_file string) {
 	}()
 	// init background task
 	// this must be init cronjob after bot start
-	init_background_tasks(ConfigYamlObj.CronConf)
+	// init_background_tasks(ConfigYamlObj.CronConf)
 	// debug only
-	// PerformTasks()
+	PerformTasks()
 	wg.Wait()
 }

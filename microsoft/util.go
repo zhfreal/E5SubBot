@@ -13,26 +13,26 @@ func GetRegURLNew() string {
 	return "https://aka.ms/appregistrations"
 }
 
-func getDCReqUrl(tenant string) string {
+func getDCReqUrl(tenant *string) string {
 	return fmt.Sprintf("%v/%v", getAuthUrl(tenant), OAuthDC)
 }
 
-func getTokenUrl(tenant string) string {
+func getTokenUrl(tenant *string) string {
 	return fmt.Sprintf("%v/%v", getAuthUrl(tenant), OAuthToken)
 }
 
-func getAuthUrl(tenant string) string {
-	return fmt.Sprintf("%v/%v/%v", AuthBase, tenant, OAuth)
+func getAuthUrl(tenant *string) string {
+	return fmt.Sprintf("%v/%v/%v", AuthBase, *tenant, OAuth)
 }
 
-func getMsgFoldersSubPath(folder_id, msg_id string) string {
+func getMsgFoldersSubPath(folder_id, msg_id *string) string {
 	var sub_path string = "/me"
-	if len(folder_id) > 0 {
-		sub_path = fmt.Sprintf("%v/mailFolders/%v", sub_path, folder_id)
+	if folder_id != nil && len(*folder_id) > 0 {
+		sub_path = fmt.Sprintf("%v/mailFolders/%v", sub_path, *folder_id)
 	}
 	sub_path = fmt.Sprintf("%v/messages", sub_path)
-	if len(msg_id) > 0 {
-		sub_path = fmt.Sprintf("%v/%v", sub_path, msg_id)
+	if msg_id != nil && len(*msg_id) > 0 {
+		sub_path = fmt.Sprintf("%v/%v", sub_path, *msg_id)
 	}
 	return sub_path
 }
@@ -78,8 +78,8 @@ func Rand_Choice(choices []string) string {
 	return choices[myRand.Intn(len(choices))]
 }
 
-func performGraphApiGet(access_token, url_str, proxy string) (string, error) {
-	resp, err := performGraphApi(OpGet, access_token, url_str, "", proxy)
+func performGraphApiGet(access_token, url_str, proxy *string) (string, error) {
+	resp, err := performGraphApi(&OpGet, access_token, url_str, nil, proxy)
 	if err != nil {
 		return "", err
 	}
@@ -91,8 +91,8 @@ func performGraphApiGet(access_token, url_str, proxy string) (string, error) {
 	return string(t_b), nil
 }
 
-func performGraphApiPost(access_token, url_str, data, proxy string) (string, error) {
-	resp, err := performGraphApi(OpPost, access_token, url_str, data, proxy)
+func performGraphApiPost(access_token, url_str, data, proxy *string) (string, error) {
+	resp, err := performGraphApi(&OpPost, access_token, url_str, data, proxy)
 	if err != nil {
 		return "", err
 	}
@@ -110,10 +110,24 @@ func performGraphApiPost(access_token, url_str, data, proxy string) (string, err
 	return string(t_b), nil
 }
 
+func performGraphApiPostSendMail(access_token, url_str, data, proxy *string) (bool, error) {
+	resp, err := performGraphApi(&OpPost, access_token, url_str, data, proxy)
+	if err != nil {
+		return false, err
+	}
+	if resp.StatusCode != 202 {
+		defer resp.Body.Close()
+		t_b, _ := io.ReadAll(resp.Body)
+		err = fmt.Errorf("%v, %v", resp.Status, string(t_b))
+		return false, err
+	}
+	return true, nil
+}
+
 // perform graph delete
-func performGraphApiDelete(access_token, url_str, proxy string) (bool, error) {
+func performGraphApiDelete(access_token, url_str, proxy *string) (bool, error) {
 	ok := false
-	resp, err := performGraphApi(OpDelete, access_token, url_str, "", proxy)
+	resp, err := performGraphApi(&OpDelete, access_token, url_str, nil, proxy)
 	if err != nil {
 		return ok, err
 	}
@@ -131,32 +145,32 @@ func performGraphApiDelete(access_token, url_str, proxy string) (bool, error) {
 // support http GET, POST and DELETE, POST action support add post data
 // POST data must be json string
 // to void api failed we need set interval between two api requests.
-func performGraphApi(action, access_token, url_str, data, proxy string) (*http.Response, error) {
+func performGraphApi(action, access_token, url_str, data, proxy *string) (*http.Response, error) {
 	var req *http.Request
 	var err error
-	if action == OpPost {
-		b := bytes.NewBuffer([]byte(data))
-		req, err = http.NewRequest(action, url_str, b)
+	if action != nil && *action == OpPost {
+		b := bytes.NewBuffer([]byte(*data))
+		req, err = http.NewRequest(*action, *url_str, b)
 	} else {
-		req, err = http.NewRequest(action, url_str, nil)
+		req, err = http.NewRequest(*action, *url_str, nil)
 	}
 	// fail to create request
 	if err != nil {
 		return &http.Response{}, err
 	}
 	// set authorization
-	req.Header.Set("Authorization", access_token)
+	req.Header.Set("Authorization", *access_token)
 	req.Header.Set("Accept", "application/json")
 	// set Content-Type if we post data
-	if action == OpPost {
+	if action != nil && *action == OpPost {
 		req.Header.Set("Content-Type", "application/json")
 	} else {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 	// Create a new HTTP client and send the request
 	client := &http.Client{}
-	if proxy != "" {
-		t_url_obj, _ := url.Parse(proxy)
+	if proxy != nil && *proxy != "" {
+		t_url_obj, _ := url.Parse(*proxy)
 		client.Transport = &http.Transport{
 			Proxy: http.ProxyURL(t_url_obj),
 		}

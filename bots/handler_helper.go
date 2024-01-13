@@ -539,13 +539,13 @@ func handleAccountBinding(ctx context.Context, b *bot.Bot, key *MsgKey, re_auth 
 	if re_auth {
 		user_id = v.Extra.ExtraData2Uint
 	}
-	handleAccountAuth(ctx, b, chat_id, app_conf.ID, app_conf.ClientId, app_conf.Alias, user_id, re_auth)
+	handleAccountAuth(ctx, b, chat_id, app_conf.ID, &app_conf.ClientId, &app_conf.Alias, user_id, re_auth)
 }
 
 // request device code and check it's authorization status
 // user_id work with re_auth, while we do /reAuth, user_id means the specific user's config ID we chose to reAuth
 // it used for double check of new authorization account with old one
-func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id uint, client_id, app_alias string, user_id uint, re_auth bool) {
+func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id uint, client_id, app_alias *string, user_id uint, re_auth bool) {
 	token_cache, e := ms.GetDeviceCode(context.Background(), client_id)
 	if e != nil {
 		logger.Errorf("<handleAccountAuth> get device code failed with %v\n", e.Error())
@@ -558,7 +558,7 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 	t_msg := token_cache.Message
 	t_code_expired_at := time.Unix(token_cache.ExpireTime, 0)
 	t_msg = fmt.Sprintf("Binding account into %v. %v. This code will expire at %v",
-		app_alias, t_msg, t_code_expired_at.Local().Format("2006-01-02 15:04:05 MST"))
+		*app_alias, t_msg, t_code_expired_at.Local().Format("2006-01-02 15:04:05 MST"))
 	// send message to auth device code, and offer an option to cancel this authorization
 	kb := &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
@@ -588,7 +588,7 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 	}
 	BindCachedObj.Add(t_key, t_value)
 	// lock AuthCached
-	dc_for_cached := &PendingDeviceCode{ClientID: client_id, DeviceCode: token_cache.DeviceCode, Msg: t_msg}
+	dc_for_cached := &PendingDeviceCode{ClientID: *client_id, DeviceCode: token_cache.DeviceCode, Msg: t_msg}
 	AuthCachedObj.Lock(chat_id, dc_for_cached, nil)
 	t_expired_durations := time.Until(t_code_expired_at)
 	ctx, cancel := context.WithTimeout(ctx, t_expired_durations)
@@ -625,7 +625,7 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 			// try to update storage
 			storage.UpdateUserByAppIDTgIDMsUsername(userConfig)
 			// send message to user
-			t_msg = fmt.Sprintf("Succeed to re-auth %v from APP %v!", userConfig.MsUsername, app_alias)
+			t_msg = fmt.Sprintf("Succeed to re-auth %v from APP %v!", userConfig.MsUsername, *app_alias)
 			b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: chat_id,
 				Text:   t_msg,
@@ -649,7 +649,7 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 				// add stats
 				storage.InitStatsByUserID(userConfig.ID)
 				// send message to user
-				t_msg = fmt.Sprintf("Succeed to bind %v into APP %v!", userConfig.MsUsername, app_alias)
+				t_msg = fmt.Sprintf("Succeed to bind %v into APP %v!", userConfig.MsUsername, *app_alias)
 				b.SendMessage(ctx, &bot.SendMessageParams{
 					ChatID: chat_id,
 					Text:   t_msg,
@@ -659,9 +659,9 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 			// we found the same ms account in table users
 			// do update
 			storage.UpdateUserByAppIDTgIDMsUsername(userConfig)
-			logger.Debugf("<handleAccountAuth> found this account %v already bound in app %v, we do authorization update.\n", userConfig.MsUsername, app_alias)
+			logger.Debugf("<handleAccountAuth> found this account %v already bound in app %v, we do authorization update.\n", userConfig.MsUsername, *app_alias)
 			// send message to user
-			t_msg = fmt.Sprintf("This account %v already bound in APP %v. We update authorization info !", userConfig.MsUsername, app_alias)
+			t_msg = fmt.Sprintf("This account %v already bound in APP %v. We update authorization info !", userConfig.MsUsername, *app_alias)
 			b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: chat_id,
 				Text:   t_msg,
@@ -787,7 +787,7 @@ func bindAccountFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list
 		return
 	}
 	// bind account
-	handleAccountAuth(ctx, b, chat_id, app_conf.ID, app_conf.ClientId, app_alias, 0, false)
+	handleAccountAuth(ctx, b, chat_id, app_conf.ID, &app_conf.ClientId, &app_alias, 0, false)
 }
 
 // handle "/reAuth <app_alias> <user_alias>"
@@ -836,7 +836,7 @@ func reAuthUserByAppAliasUserAliasFromCMD(ctx context.Context, b *bot.Bot, chat_
 		}
 	} else {
 		// do re-auth account
-		handleAccountAuth(ctx, b, chat_id, appConf.ID, appConf.ClientId, app_alias, userConf.ID, true)
+		handleAccountAuth(ctx, b, chat_id, appConf.ID, &appConf.ClientId, &app_alias, userConf.ID, true)
 	}
 }
 

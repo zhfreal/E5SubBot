@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -231,4 +232,12 @@ func SplitStringByRegStr(s, reg_str string) []string {
 	r := regexp.MustCompile(reg_str)
 	t_list := r.Split(s, -1)
 	return t_list
+}
+
+// shuffle slice
+func ShuffleSlice(s []*string) {
+	my_rand := rand.New(rand.NewSource(time.Now().UnixNano())) // seed the random generator
+	my_rand.Shuffle(len(s), func(i, j int) {
+		s[i], s[j] = s[j], s[i] // swap the elements
+	})
 }

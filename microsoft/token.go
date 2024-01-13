@@ -12,11 +12,12 @@ import (
 )
 
 // get device code by REST API
-func GetDeviceCode(ctx context.Context, client_id string) (*TokenCache, error) {
+func GetDeviceCode(ctx context.Context, client_id *string) (*TokenCache, error) {
 	// make a cache to store token
-	cache := &TokenCache{ClientID: client_id}
+	cache := &TokenCache{ClientID: *client_id}
 
-	b, e := getDeviceCode(Tenant, client_id, scope_new, ctx)
+	tenant := Tenant
+	b, e := getDeviceCode(&tenant, client_id, scope_new, ctx)
 	if e != nil {
 		return nil, e
 	}
@@ -58,7 +59,8 @@ func GetDeviceCode(ctx context.Context, client_id string) (*TokenCache, error) {
 func CheckAuthStatusOfDeviceCode(ctx context.Context, token_cache *TokenCache) error {
 	for {
 		time.Sleep(APIInterval)
-		b, e := authDeviceCode(ctx, Tenant, token_cache.ClientID, token_cache.DeviceCodeDev)
+		tenant := Tenant
+		b, e := authDeviceCode(ctx, &tenant, &token_cache.ClientID, &token_cache.DeviceCodeDev)
 		if e != nil {
 			continue
 		}
@@ -75,7 +77,7 @@ func CheckAuthStatusOfDeviceCode(ctx context.Context, token_cache *TokenCache) e
 			token_cache.ExpireIn = t_auth_result.ExpiresIn
 			token_cache.ExpireTime = time.Now().Add(time.Second * time.Duration(t_auth_result.ExpiresIn)).Unix()
 			// get user
-			t_alias, t_mail := GetMeInfo(token_cache.AccessToken, "")
+			t_alias, t_mail := GetMeInfo(&token_cache.AccessToken, nil)
 			token_cache.Username = t_mail
 			token_cache.Alias = t_alias
 			break
@@ -104,8 +106,9 @@ func CheckAuthStatusOfDeviceCode(ctx context.Context, token_cache *TokenCache) e
 
 // fresh access token by client_id and refresh token
 // return access_token, refresh_token, expire_id, and error if there is any error.
-func RefreshToken(ctx context.Context, client_id, refresh string) (string, string, int, error) {
-	t_b, err := refreshToken(ctx, Tenant, client_id, refresh, scope_new)
+func RefreshToken(ctx context.Context, client_id, refresh *string) (string, string, int, error) {
+	tenant := Tenant
+	t_b, err := refreshToken(ctx, &tenant, client_id, refresh, scope_new)
 	if err != nil {
 		return "", "", -1, err
 	}
@@ -121,11 +124,11 @@ func RefreshToken(ctx context.Context, client_id, refresh string) (string, strin
 }
 
 // get device code
-func getDeviceCode(tenant, clientID string, scopes []string, ctx context.Context) ([]byte, error) {
+func getDeviceCode(tenant, clientID *string, scopes []string, ctx context.Context) ([]byte, error) {
 	// Create a URL-encoded form with the required parameters
 	form := url.Values{}
 	form.Add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-	form.Add("client_id", clientID)
+	form.Add("client_id", *clientID)
 	form.Add("scope", strings.Join(scopes, " "))
 
 	// Create a new HTTP request with the form as the body
@@ -138,12 +141,12 @@ func getDeviceCode(tenant, clientID string, scopes []string, ctx context.Context
 }
 
 // authenticate by device code
-func authDeviceCode(ctx context.Context, tenant, clientID, deviceCode string) ([]byte, error) {
+func authDeviceCode(ctx context.Context, tenant, clientID, deviceCode *string) ([]byte, error) {
 	// Create a URL-encoded form with the required parameters
 	form := url.Values{}
 	form.Add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-	form.Add("client_id", clientID)
-	form.Add("device_code", deviceCode)
+	form.Add("client_id", *clientID)
+	form.Add("device_code", *deviceCode)
 
 	// Create a new HTTP request with the form as the body
 	req, err := http.NewRequestWithContext(ctx, "POST", getTokenUrl(tenant), strings.NewReader(form.Encode()))
@@ -155,12 +158,12 @@ func authDeviceCode(ctx context.Context, tenant, clientID, deviceCode string) ([
 }
 
 // refresh token
-func refreshToken(ctx context.Context, tenant, clientID, refreshToken string, scopes []string) ([]byte, error) {
+func refreshToken(ctx context.Context, tenant, clientID, refreshToken *string, scopes []string) ([]byte, error) {
 	// Create a URL-encoded form with the required parameters
 	form := url.Values{}
-	form.Add("client_id", clientID)
+	form.Add("client_id", *clientID)
 	form.Add("grant_type", "refresh_token")
-	form.Add("refresh_token", refreshToken)
+	form.Add("refresh_token", *refreshToken)
 	t_scopes_str := ""
 	for _, v := range scopes {
 		t_scopes_str = fmt.Sprintf("%v %v/%v", t_scopes_str, GraphUrl, v)

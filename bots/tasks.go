@@ -56,21 +56,28 @@ func PerformTasks() {
 	var wg_prd WaitGroupCount  // for task producer
 	var wg_con WaitGroupCount  // for task consumer
 	var wg_task WaitGroupCount // for tasks themselves
-	var in chan *ms.Args
+	var in chan *ms.Task
 	var out chan *ms.ApiResult
 	var done chan bool
 	// tasks_count := 0
 	// init all chan
 	// make first parameter into t_len_users_config*<amount of counts> to make the limitation higher
 	thread_count := utils.MinInt(t_len_users_config*3, ConfigYamlObj.Goroutine)
-	in = make(chan *ms.Args, t_len_users_config*3)
+	in = make(chan *ms.Task, t_len_users_config*3)
 	out = make(chan *ms.ApiResult, t_len_users_config*3)
 	done = make(chan bool, thread_count*2)
+	// loop all_users_config, get user's mail
+	mails_list := []*string{}
+	for _, uc := range all_users_config {
+		mails_list = append(mails_list, &uc.MsUsername)
+	}
+	// shuffle mails_list
+	utils.ShuffleSlice(mails_list)
 	// put task
 	// add to wg
-	for _, uc := range all_users_config {
+	for i, uc := range all_users_config {
 		wg_prd.Add(1)
-		go func(uc *storage.Users) {
+		go func(uc *storage.Users, to *string) {
 			// mails
 			// release from wg
 			defer wg_prd.Done()
@@ -111,25 +118,56 @@ func PerformTasks() {
 			// 	AccessToken: t_token,
 			// }
 			// WorkingOnMails more specific to read, search, delete and send (add later)
-			wg_task.Add(3)
-			in <- &ms.Args{
-				Func:        ms.WorkingOnMailsRead,
-				ID:          user_id,
-				AccessToken: t_token,
-			}
-			in <- &ms.Args{
-				Func:        ms.WorkingOnMailsSearch,
-				ID:          user_id,
-				AccessToken: t_token,
-			}
-			in <- &ms.Args{
-				Func:        ms.WorkingOnMailsDelete,
-				ID:          user_id,
-				AccessToken: t_token,
-			}
-		}(uc)
-	}
 
+			args := &ms.Args{
+				ID:          user_id,
+				AccessToken: &t_token,
+				To:          to,
+			}
+			if ConfigYamlObj.MS.Mail.ReadMails.Enabled {
+				wg_task.Add(1)
+				in <- &ms.Task{
+					Func: ms.WorkingOnMailsRead,
+					Args: args,
+				}
+			}
+			if ConfigYamlObj.MS.Mail.SearchMails.Enabled {
+				wg_task.Add(1)
+				in <- &ms.Task{
+					Func: ms.WorkingOnMailsSearch,
+					Args: args,
+				}
+			}
+			if ConfigYamlObj.MS.Mail.AutoDeleteMails.Enabled {
+				wg_task.Add(1)
+				in <- &ms.Task{
+					Func: ms.WorkingOnMailsDelete,
+					Args: args,
+				}
+
+			}
+			if ConfigYamlObj.MS.Mail.AutoSendMails.Enabled {
+				wg_task.Add(1)
+				in <- &ms.Task{
+					Func: ms.WorkingOnMailsSend,
+					Args: args,
+				}
+
+			}
+		}(uc, mails_list[i])
+	}
+	// we need read the template as the content for sending emails
+	// read template before we start the task
+	if ConfigYamlObj.MS.Mail.AutoSendMails.Enabled {
+		read_mail_template()
+	}
+	// to reduce the cache size, we need clean Template and TemplateContent after background task done
+	defer func() {
+		ConfigYamlObj.MS.Mail.AutoSendMails.Template = ""
+		ConfigYamlObj.MS.Mail.AutoSendMails.TemplateContent = ""
+	}()
+
+	// start multiple goroutines to perform WorkingOnMsFromChan
 	for i := 0; i < thread_count; i++ {
 		wg_con.Add(1)
 		go WorkingOnMsFromChan(in, out, done, &wg_con, ConfigYamlObj.Proxy, ConfigYamlObj.MS)
@@ -220,11 +258,11 @@ RESULT_LOPPER:
 	}
 }
 
-func WorkingOnMsFromChan(in chan *ms.Args, out chan *ms.ApiResult, done chan bool, wg *WaitGroupCount, proxy string, ms_conf *config.ConfigMs) {
+func WorkingOnMsFromChan(in chan *ms.Task, out chan *ms.ApiResult, done chan bool, wg *WaitGroupCount, proxy string, ms_conf *config.ConfigMs) {
 	for {
 		select {
-		case args := <-in:
-			args.Func(args.ID, args.AccessToken, out, proxy, ConfigYamlObj.MS)
+		case task := <-in:
+			task.Func(task.Args.ID, task.Args.AccessToken, out, &proxy, ConfigYamlObj.MS, task.Args.To)
 		case ok := <-done:
 			if ok {
 				wg.Done()
