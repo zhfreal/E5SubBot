@@ -33,13 +33,14 @@ func print_version() {
 func main() {
 	var conf string
 	var show_version bool
-	var show_token bool
+	var show_token, force_refresh bool
 	var accounts_for_show string
 	help := fmt.Sprintf("Usage: %v [options]", APPName) + `
 options:
     -c|-conf          config file path or folder contain "config.yaml" or "config.yml". "/etc/e5bot/" as default.
     -S|-show-token    show all bounded accounts's token.
     -a|-account       specific the account bounded for show, work with "-S|-show-token".
+    -r|-refresh       force refresh access token, work with "-S|-show-token".
     -v|-version       show version.
     -h|-help          show help.
 `
@@ -47,6 +48,8 @@ options:
 	flag.StringVar(&conf, "c", "/etc/e5bot/", "config file path or folder contain \"config.yaml\" or \"config.yml\".")
 	flag.BoolVar(&show_token, "show-token", false, "show all bounded accounts's token.")
 	flag.BoolVar(&show_token, "S", false, "show all bounded accounts's token.")
+	flag.BoolVar(&force_refresh, "refresh", false, "force refresh access token.")
+	flag.BoolVar(&force_refresh, "r", false, "force refresh access token.")
 	flag.StringVar(&accounts_for_show, "account", "", "specific the account bounded for show, work with -S|-show-token.")
 	flag.StringVar(&accounts_for_show, "a", "", "specific the account bounded for show, work with -S|-show-token.")
 	flag.BoolVar(&show_version, "version", false, "Show version.")
@@ -65,7 +68,7 @@ options:
 	bots.Init(conf)
 	if show_token {
 		print_version()
-		bots.ShowToken(accounts_for_show)
+		bots.ShowToken(accounts_for_show, force_refresh)
 		os.Exit(0)
 	}
 	// this is for test only

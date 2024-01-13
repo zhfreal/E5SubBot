@@ -45,7 +45,7 @@ func GetToken(uc *storage.Users) (string, bool, error) {
 }
 
 // show token from *storage.UsersConfig, if it expired, then refresh it;
-func ShowToken(account string) {
+func ShowToken(account string, force_refresh bool) {
 	var uc_list []*storage.Users
 	var e error
 	if len(account) == 0 {
@@ -72,7 +72,7 @@ func ShowToken(account string) {
 		t_expire_at := uc.ExpiresAt
 		expiresAt := time.Unix(t_expire_at, 0)
 		t_time_now := time.Now()
-		if expiresAt.Before(t_time_now) || len(uc.RefreshToken) == 0 {
+		if force_refresh || expiresAt.Before(t_time_now) || len(uc.RefreshToken) == 0 {
 			access_token, refresh_token, expire_in, err = microsoft.RefreshToken(context.Background(), &uc.MsId, &uc.RefreshToken)
 			if err != nil {
 				continue
