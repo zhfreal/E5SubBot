@@ -23,7 +23,7 @@ const (
 )
 
 const (
-	OpTypeFile uint = iota + 9 + 1
+	OpTypeFile uint = iota + 100 + 1
 	OpTypeFileDownload
 	OpTypeFileSearch
 	OpTypeFileUpload
