@@ -37,7 +37,7 @@ func getMsgFoldersSubPath(folder_id, msg_id *string) string {
 	return sub_path
 }
 
-func genGraphApiUrl(query map[string]any, paths ...string) (string, error) {
+func genGraphApiUrl(query map[string]interface{}, paths ...string) (string, error) {
 	// Construct the URL
 	var t_url string
 	var e error
@@ -71,6 +71,18 @@ func genGraphApiUrl(query map[string]any, paths ...string) (string, error) {
 
 	// Update the URL with the modified query parameters
 	u.RawQuery = queryParams.Encode()
+	// param := ""
+	// for k, v := range query {
+	// 	t_k := url.QueryEscape(fmt.Sprint(k))
+	// 	t_v := url.QueryEscape(fmt.Sprint(v))
+	// 	t_v = strings.Replace(t_v, "+", "%20", -1)
+	// 	param = fmt.Sprintf("%v&%v=%v", param, t_k, t_v)
+	// }
+
+	// if len(param) > 0 {
+	// 	param = strings.TrimLeft(param, "&")
+	// 	t_url = fmt.Sprintf("%v?%v", t_url, param)
+	// }
 	return u.String(), nil
 }
 

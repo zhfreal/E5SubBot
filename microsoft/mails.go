@@ -464,6 +464,13 @@ func readMailsFromFolder(access_token, folder_id *string, count int, proxy *stri
 	// order result by receivedDateTime reverse order
 	if read_latest {
 		param["$orderby"] = "receivedDateTime DESC"
+		t_rcv_time_filter := "receivedDateTime gt 1900-01-01T00:00:00Z"
+		// if read_latest, we need order by receivedDateTime as descend order, and make sure receivedDateTime in $filter's first parameter
+		if param["$filter"] != "" {
+			param["$filter"] = fmt.Sprintf("%v and %v", t_rcv_time_filter, param["$filter"])
+		} else {
+			param["$filter"] = t_rcv_time_filter
+		}
 	}
 	// set $top
 	t_top := count
@@ -607,7 +614,6 @@ func searchEmailByKeyword(access_token, keyword *string, from, size int, proxy *
 
 // get filtered mails by a keyword in specific folder with it's folder_id
 // count: specific count of mails to read, when count <=0, means read all mails
-// use $search instead of $filter for more convenient call
 // return: the mails in []gjson.Result, the success operation count, the failure operation account, and the error
 func getFilteredMails(folder_id, access_token, keyword *string, count int, proxy *string) ([]gjson.Result, int, int, error) {
 	var content string
@@ -615,7 +621,13 @@ func getFilteredMails(folder_id, access_token, keyword *string, count int, proxy
 	var s, f int = 0, 0
 	var t_result_slice []gjson.Result
 	// quote the keyword
-	var params map[string]any = map[string]any{"$search": fmt.Sprintf("\"body:%v\"", *keyword)}
+	params := map[string]any{}
+	params["$orderby"] = "receivedDateTime ASC"
+	// escape keyword
+	tmp := fmt.Sprintf("%v", *keyword)
+	// tmp = url.QueryEscape(tmp)
+	params["$filter"] = fmt.Sprintf("receivedDateTime gt 1900-01-01T00:00:00Z and contains(body/content,'%v')", tmp)
+	// set $top
 	t_top := count
 	if t_top <= 0 {
 		t_top = ReadMailsCount
