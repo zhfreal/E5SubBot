@@ -224,10 +224,12 @@ type ConfigAutoSend struct {
 	Subject         string `yaml:"subject"`
 }
 type ConfigLog struct {
-	LogIntoFile bool   `yaml:"logintofile" default:"true"`
-	LogFile     string `yaml:"logfile" default:"logs/latest.log"`
-	LogLevel    string `yaml:"loglevel" default:"warn"`
-	MaxSize     int    `yaml:"maxsize" default:"5"`
-	MaxAge      int    `yaml:"maxage" default:"7"`
-	MaxBackups  int    `yaml:"maxbackups" default:"20"`
+	LogIntoFile     bool   `yaml:"logintofile" default:"true"`
+	LogFile         string `yaml:"logfile" default:"logs/latest.log"`
+	LogLevel        string `yaml:"loglevel" default:"warn"`
+	MaxSize         int    `yaml:"maxsize" default:"5"`
+	MaxAge          int    `yaml:"maxage" default:"7"`
+	MaxBackups      int    `yaml:"maxbackups" default:"20"`
+	SaveOpDetails   bool   `yaml:"saveopdetails" default:"false"`
+	SaveTaskRecords bool   `yaml:"savetaskrecords" default:"false"`
 }

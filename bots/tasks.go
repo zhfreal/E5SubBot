@@ -251,9 +251,11 @@ RESULT_LOPPER:
 	}
 	// update storage
 	storage.UpdateStatsByStats(t_stats_map)
-	// just store op_details and task_records when debug on
-	if ConfigYamlObj.Log.LogLevel == "debug" {
+	// just store op_details and task_records when setting is on
+	if ConfigYamlObj.Log.SaveOpDetails {
 		storage.SaveOpDetails(details)
+	}
+	if ConfigYamlObj.Log.SaveTaskRecords {
 		storage.SaveTaskRecords(task_records)
 	}
 }

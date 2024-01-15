@@ -210,6 +210,9 @@ func monitor_config_change(file_path string) {
 			new_config.Workspace != ConfigYamlObj.Workspace {
 			logger.Warnf("log settings changed, please restart daemon to take effect\n")
 		}
+		// read new setting for SaveOpDetails, SaveOpDetails
+		ConfigYamlObj.Log.SaveOpDetails = new_config.Log.SaveOpDetails
+		ConfigYamlObj.Log.SaveTaskRecords = new_config.Log.SaveOpDetails
 		// if Workspace changed, need to restart daemon to take effect
 		if new_config.Workspace != ConfigYamlObj.Workspace {
 			logger.Warnf("Workspace changed, please restart daemon to take effect\n")
