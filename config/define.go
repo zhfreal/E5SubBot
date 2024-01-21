@@ -192,29 +192,39 @@ type ConfigMs struct {
 	Mail *ConfigMail `yaml:"mail"`
 }
 type ConfigMail struct {
-	AutoDeleteMails *ConfigAutoDelete  `yaml:"autodeletemails"`
-	ReadMails       *ConfigReadMails   `yaml:"readmails"`
-	SearchMails     *ConfigSearchMails `yaml:"searchmails"`
-	AutoSendMails   *ConfigAutoSend    `yaml:"autosendmails"`
+	AutoDeleteMails *ConfigAutoDelete      `yaml:"autodeletemails"`
+	ReadMails       *ConfigReadMails       `yaml:"readmails"`
+	ReadMailFolders *ConfigReadMailFolders `yaml:"readmailfolders"`
+	SearchMails     *ConfigSearchMails     `yaml:"searchmails"`
+	AutoSendMails   *ConfigAutoSend        `yaml:"autosendmails"`
 }
 type ConfigAutoDelete struct {
-	Enabled    bool     `yaml:"enabled" default:"false"`
-	Keyword    string   `yaml:"keyword"`
-	Keywords   []string `yaml:"keywords"`
-	Quantity   int      `yaml:"quantity" default:"20"`
-	ReadUnread bool     `yaml:"readunread" default:"true"`
+	Enabled         bool     `yaml:"enabled" default:"false"`
+	Keyword         string   `yaml:"keyword"`
+	Keywords        []string `yaml:"keywords"`
+	Quantity        int      `yaml:"quantity" default:"20"`
+	ReadUnread      bool     `yaml:"readunread" default:"true"`
+	ReadAttachments bool     `yaml:"readattachments" default:"false"`
 }
 type ConfigReadMails struct {
-	Enabled    bool `yaml:"enabled" default:"true"`
-	Quantity   int  `yaml:"quantity" default:"20"`
-	ReadUnread bool `yaml:"readunread" default:"true"`
+	Enabled         bool `yaml:"enabled" default:"true"`
+	Quantity        int  `yaml:"quantity" default:"20"`
+	ReadUnread      bool `yaml:"readunread" default:"true"`
+	ReadAttachments bool `yaml:"readattachments" default:"false"`
+}
+type ConfigReadMailFolders struct {
+	Enabled         bool `yaml:"enabled" default:"true"`
+	Quantity        int  `yaml:"quantity" default:"20"`
+	ReadUnread      bool `yaml:"readunread" default:"true"`
+	ReadAttachments bool `yaml:"readattachments" default:"false"`
 }
 type ConfigSearchMails struct {
-	Enabled    bool     `yaml:"enabled" default:"true"`
-	Keyword    string   `yaml:"keyword"`
-	Keywords   []string `yaml:"keywords"`
-	Quantity   int      `yaml:"quantity" default:"20"`
-	ReadUnread bool     `yaml:"readunread" default:"true"`
+	Enabled         bool     `yaml:"enabled" default:"true"`
+	Keyword         string   `yaml:"keyword"`
+	Keywords        []string `yaml:"keywords"`
+	Quantity        int      `yaml:"quantity" default:"20"`
+	ReadUnread      bool     `yaml:"readunread" default:"true"`
+	ReadAttachments bool     `yaml:"readattachments" default:"false"`
 }
 type ConfigAutoSend struct {
 	Enabled         bool   `yaml:"enabled" default:"false"`

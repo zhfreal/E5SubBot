@@ -23,6 +23,16 @@ const (
 )
 
 const (
+	OpTypeMailListRootUnreadMail uint = iota + 10
+	OpTypeMailListMailFolder
+	OpTypeMailReadMailFoldersDelta
+	OpTypeMailReadMailsDelta
+	OpTypeMailReadFilteredMails
+	OpTypeMailReadMailsAttachments
+	OpTypeMailReadMarkMailAsRead
+)
+
+const (
 	OpTypeFile uint = iota + 100 + 1
 	OpTypeFileDownload
 	OpTypeFileSearch
@@ -40,6 +50,7 @@ var (
 	OpGet         string = "GET"
 	OpPost        string = "POST"
 	OpDelete      string = "DELETE"
+	OpPatch       string = "PATCH"
 	ODataNextLink string = "@odata\\.nextLink" // using github.com/tidwall/gjson to search path, the "." must be escaped
 	ODataContext  string = "@odata\\.context"  // using github.com/tidwall/gjson to search path, the "." must be escaped
 	// timeout_request_device_code        = 10 // timeout in seconds for request device code
@@ -72,11 +83,18 @@ var (
 	}
 	myRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 	Ops    = map[uint]string{
-		OpTypeMail:       "Mails",
-		OpTypeMailRead:   "MailsRead",
-		OpTypeMailSearch: "MailsSearch",
-		OpTypeMailSend:   "MailsSend",
-		OpTypeMailDelete: "MailsDelete",
+		OpTypeMail:                     "Mails",
+		OpTypeMailRead:                 "MailsRead",
+		OpTypeMailSearch:               "MailsSearch",
+		OpTypeMailSend:                 "MailsSend",
+		OpTypeMailDelete:               "MailsDelete",
+		OpTypeMailListRootUnreadMail:   "MailsListRootMail",
+		OpTypeMailListMailFolder:       "MailsListMailFolder",
+		OpTypeMailReadMailFoldersDelta: "MailsReadMailFoldersDelta",
+		OpTypeMailReadMailsDelta:       "MailsReadMailsDelta",
+		OpTypeMailReadFilteredMails:    "MailsReadFilteredMails",
+		OpTypeMailReadMailsAttachments: "MailsReadMailsAttachments",
+		OpTypeMailReadMarkMailAsRead:   "MailsMarkMailAsRead",
 	}
 	MailContentHtml     string = "html"
 	MailBoxFolderInBox  string = "Inbox"
@@ -109,19 +127,26 @@ type ApiResult struct {
 	StartTime *time.Time // start time in unix time format
 	Duration  int64      // Operation in millisecond
 	EndTime   *time.Time // end time in unix time format
-	Task      *Task      // if the operation just a middleware, need pass this to later process, not used right now
+	Tasks     []*Task    // if the operation just a middleware, need pass this to later process, not used right now
 }
 
 type Task struct {
-	Func func(id uint, access_token *string, out chan *ApiResult, proxy *string, ms_conf *config.ConfigMs, to *string)
-	Args *Args
+	Func func(out chan *ApiResult, proxy *string, ms_conf *config.ConfigMs, args MsArgs)
+	Args MsArgs // id uint, access_token *string, must be stored in Args
 }
 
-type Args struct {
-	ID          uint // UsersConfig's ID, indicate which user in storage, just label this args, no actual usage in Func()
-	AccessToken *string
-	To          *string // Send to this address, used by send
-}
+type MsArgs map[string]interface{}
+
+var (
+	ArgUserID          string = "UserID"
+	ArgAccessToken     string = "AccessToken"
+	ArgTo              string = "To"
+	ArgMailId          string = "MailId"
+	ArgFolderId        string = "FolderId"
+	ArgKeyword         string = "Keyword"
+	ArgReadAttachments string = "ReadAttachments"
+	ArgAttachmentId    string = "AttachmentId"
+)
 
 func detect_error(data []byte) []byte {
 	e := ErrorREST{}

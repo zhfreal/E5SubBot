@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -274,6 +275,7 @@ func Init(conf string) {
 	AuthCachedObj = NewAuthCache()
 	BindCachedObj = NewBindCache()
 	UsersConfigCacheObj = NewUsersConfigCache()
+	JobLock = &sync.Mutex{}
 	// AdminList
 	AdminSet = config.NewAdminList(getAdmins())
 	// setup monitor to monitor the change of config file

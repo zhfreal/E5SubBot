@@ -393,126 +393,167 @@ var query_string_full = map[string]any{
 }
 
 // read one mail
-func readOneMail(access_token, folder_id, msg_id, proxy *string) (int, int) {
+// return:
+//
+//		[4]interface{folder_id, msg_id, is_read, has_attachments}
+//	 successful or not
+//	 error
+func readOneMail(access_token, folder_id, msg_id, proxy *string) ([4]interface{}, bool, error) {
 	var s, f int = 0, 0
-	t_url, t_err := genGraphApiUrl(query_string, getMsgFoldersSubPath(folder_id, msg_id))
+	var t_result [4]interface{}
+	var t_url string
+	var t_err error
+	t_url, t_err = genGraphApiUrl(query_string, getMsgFoldersSubPath(folder_id, msg_id))
 	if t_err != nil {
-		return s, f
+		return t_result, false, t_err
 	}
 	var content string
 	content, t_err = performGraphApiGet(access_token, &t_url, proxy)
 	if t_err != nil {
-		return s, f + 1
+		f += 1
+		return t_result, false, t_err
 	}
 	s += 1
 	is_read := gjson.Get(content, "isRead").Bool()
-	// get attachments
-	if !is_read {
-		// get attachments list
-		t_url, t_err = genGraphApiUrl(query_string_full, getMsgFoldersSubPath(folder_id, msg_id), "/attachments")
-		if t_err != nil {
-			return s, f
-		}
-		// time.Sleep(APIInterval)
-		content, t_err = performGraphApiGet(access_token, &t_url, proxy)
-		if t_err != nil {
-			return s, f + 1
-		}
-		s += 1
-		t_results := gjson.GetMany(content, "value.#.id")
-		t_id_list := t_results[0].Array()
-		// get attachments content
-		for _, t_a := range t_id_list {
-			t_url, t_err = genGraphApiUrl(map[string]any{}, getMsgFoldersSubPath(folder_id, msg_id), "/attachments/", t_a.String())
-			if t_err != nil {
-				continue
-			}
-			// time.Sleep(APIInterval)
-			_, t_err = performGraphApiGet(access_token, &t_url, proxy)
-			if t_err != nil {
-				f += 1
-			} else {
-				s += 1
-			}
-		}
-	}
-	return s, f
+	has_attachments := gjson.Get(content, "hasAttachments").Bool()
+	t_result[0] = folder_id
+	t_result[1] = msg_id
+	t_result[2] = is_read
+	t_result[3] = has_attachments
+	return t_result, true, t_err
 }
 
-// get mails under folder, we get message from two APIs:
-//
-//			-- https://graph.microsoft.com/v1.0/me/messages/{id}; /me/messages/{id};
-//			-- https://graph.microsoft.com/v1.0/me/mailFolders/{id}/messages/{msg_id}; /me/mailFolders/{id}/messages/{id};
-//
-//		 params:
-//			"access_token": api access token;
-//			"folder_id": folder's id;
-//			"count": specific count of mails to read, when count <=0, means read all mails;
-//	        "proxy": specific the proxy when we perform REST API;
-//	        "filter_unread": filter unread mails;
-//	        "read_latest": read latest mails;
-//	        "read_unread": read unread mails;
-func readMailsFromFolder(access_token, folder_id *string, count int, proxy *string, filter_unread, read_latest, read_unread bool) (int, int) {
-	var content string
-	var err error
+// list a mail's attachments
+func listMailsAttachments(access_token, folder_id, msg_id, proxy *string) ([]string, bool, error) {
 	var s, f int = 0, 0
+	var t_url, content string
+	var t_err error
+	var t_result []string
+	// get attachments list
+	t_url, t_err = genGraphApiUrl(query_string_full, getMsgFoldersSubPath(folder_id, msg_id), "/attachments")
+	if t_err != nil {
+		return t_result, false, t_err
+	}
+	// time.Sleep(APIInterval)
+	content, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	if t_err != nil {
+		f += 1
+		return t_result, false, t_err
+	}
+	s += 1
+	t_results := gjson.GetMany(content, "value.#.id")
+	t_id_list := t_results[0].Array()
+	// get attachments content
+	for _, t_a := range t_id_list {
+		t_result = append(t_result, t_a.String())
+	}
+	return t_result, true, t_err
+}
+
+// download a mail's attachment
+func downloadMailsAttachment(access_token, folder_id, msg_id, attachment_id, proxy *string) (bool, error) {
+	var t_url, content string
+	var t_err error
+	// get attachments list
+	t_url, t_err = genGraphApiUrl(query_string_full, getMsgFoldersSubPath(folder_id, msg_id), "/attachments", *attachment_id)
+	if t_err != nil {
+		return false, t_err
+	}
+	// time.Sleep(APIInterval)
+	content, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	if t_err != nil {
+		return false, t_err
+	}
+	t_attachment_id := gjson.Get(content, "id").String()
+	if len(t_attachment_id) == 0 || t_attachment_id != *attachment_id {
+		t_err = fmt.Errorf("failed to download attachment")
+	}
+	return true, t_err
+}
+
+// mark a mail as read
+func readMailMarkAsRead(access_token, folder_id, msg_id, proxy *string) (bool, error) {
+	var t_url string
+	var t_err error
+	// get attachments list
+	t_url, t_err = genGraphApiUrl(map[string]any{}, getMsgFoldersSubPath(folder_id, msg_id))
+	if t_err != nil {
+		return false, t_err
+	}
+	t_data := `{
+    "isRead": true
+}`
+	// time.Sleep(APIInterval)
+	return performGraphApiPatch(access_token, &t_url, &t_data, proxy)
+}
+
+// get mails under folder
+//
+//	return list - [(t_folder_id, t_msg_id, is_read)], count of successful call, count of failure call, f, error
+func getMailsFromFolder(access_token, folder_id *string, count int, proxy *string, read_latest, get_unread bool, content_filter *string) ([][3]interface{}, int, int, error) {
+	var content, t_url string
+	var err error
+	var s, f int
+	var t_results [][3]interface{}
 	param := map[string]any{}
-	// read unread mails
-	if filter_unread {
+	// read unread mails, make sure we just do one call to finish this job
+	if get_unread {
 		param["$filter"] = "isRead eq false"
+	}
+	if content_filter != nil && len(*content_filter) > 0 {
+		if param["$filter"] != nil {
+			param["$filter"] = fmt.Sprintf("%v and contains(body/content,'%v')", param["$filter"], *content_filter)
+		} else {
+			param["$filter"] = fmt.Sprintf("contains(body/content,'%v')", *content_filter)
+		}
 	}
 	// order result by receivedDateTime reverse order
 	if read_latest {
 		param["$orderby"] = "receivedDateTime DESC"
 		t_rcv_time_filter := "receivedDateTime gt 1900-01-01T00:00:00Z"
 		// if read_latest, we need order by receivedDateTime as descend order, and make sure receivedDateTime in $filter's first parameter
-		if param["$filter"] != "" {
+		if param["$filter"] != nil {
 			param["$filter"] = fmt.Sprintf("%v and %v", t_rcv_time_filter, param["$filter"])
 		} else {
 			param["$filter"] = t_rcv_time_filter
 		}
 	}
-	// set $top
+	// set $top to count, make sure we just do one call to finish this job
 	t_top := count
 	if t_top <= 0 {
 		t_top = ReadMailsCount
 	}
 	param["$top"] = t_top
-	t_url, t_err := genGraphApiUrl(param, getMsgFoldersSubPath(folder_id, nil))
-	if t_err != nil {
-		return s, f
+	t_url, err = genGraphApiUrl(param, getMsgFoldersSubPath(folder_id, nil))
+	if err != nil {
+		return t_results, s, f, err
 	}
 	t_fetched := 0
 	for {
 		content, err = performGraphApiGet(access_token, &t_url, proxy)
 		if err != nil {
 			f += 1
-			return s, f
+			return t_results, s, f, err
 		}
-		s += 1
 		// invalid response
+		s += 1
 		if gjson.Get(content, ODataContext).String() == "" {
-			return s, f
+			return t_results, s, f, err
 		}
-		results := gjson.GetMany(content, "value.#.id", "value.#.isRead")
-		// if len(results) != 2 {
-		// 	return s, f
-		// }
-		id_slice := results[0].Array()
-		read_slice := results[1].Array()
-		for i := 0; i < len(id_slice); i++ {
-			t_msg_id := id_slice[i].String()
-			t_is_read := read_slice[i].Bool()
-			// does not read yet
-			if read_unread && !t_is_read {
-				// read message after 100 milliseconds
-				// time.Sleep(APIInterval)
-				t_s, t_f := readOneMail(access_token, folder_id, &t_msg_id, proxy)
-				s += t_s
-				f += t_f
+		t_message_list := gjson.Get(content, "value").Array()
+		for _, t_msg := range t_message_list {
+			t_raw := t_msg.Raw
+			t_msg_id := gjson.Get(t_raw, "id").String()
+			t_folder_id := gjson.Get(t_raw, "parentFolderId").String()
+			t_is_read := gjson.Get(t_raw, "isRead").Bool()
+			// if we need to get unread mails and this mail does not read yet or we need read and unread mails.
+			if !get_unread || (get_unread && !t_is_read) {
+				// append to t_results
+				t_results = append(t_results, [3]interface{}{t_folder_id, t_msg_id, t_is_read})
+				// count the number we fetched
+				t_fetched += 1
 			}
 		}
-		t_fetched += len(id_slice)
 		t_next_url := gjson.Get(content, ODataNextLink).String()
 		// no more results
 		if len(t_next_url) == 0 || (count > 0 && t_fetched >= count) {
@@ -521,69 +562,7 @@ func readMailsFromFolder(access_token, folder_id *string, count int, proxy *stri
 		t_url = t_next_url
 		// time.Sleep(APIInterval)
 	}
-	return s, f
-}
-
-// get all mailFolders and their child folders, and their mails
-func readMailsFromAllFolders(access_token, proxy *string, read_unread bool) (int, int) {
-	var content string
-	var err error
-	var s, f int = 0, 0
-	t_folder_result, t_s, t_f, err := getAllMailFolders(access_token, proxy)
-	s += t_s
-	f += t_f
-	if err != nil {
-		return s, f
-	}
-	// TODO： change folders into map[*string]map[*string]gjson.Result, to reduce string replicas
-	// has child folders
-	folders := make(map[string]map[string]gjson.Result)
-	t_id_list := make([]string, 0)
-	for _, r := range t_folder_result {
-		key := r.Get("id").String()
-		v := r.Map()
-		folders[key] = v
-		t_id_list = append(t_id_list, key)
-	}
-	// loop to get all mails and sub folders
-	for i := 0; i < len(t_id_list); i++ {
-		// time.Sleep(APIInterval)
-		t_id := t_id_list[i]
-		// mails delta
-		t_s, t_f := getMailFoldersDelta(access_token, &t_id, proxy)
-		s += t_s
-		f += t_f
-		t_s, t_f = readMailsFromFolder(access_token, &t_id, ReadMailsCount, proxy, false, false, read_unread)
-		s += t_s
-		f += t_f
-		// has child folders
-		if folders[t_id]["childFolders"].Int() > 0 {
-			// get child folders
-			// time.Sleep(APIInterval)
-			url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders", t_id, "/childFolders")
-			content, err = performGraphApiGet(access_token, &url, proxy)
-			if err != nil {
-				f += 1
-				return s, f
-			}
-			s += 1
-			result := gjson.Get(content, "value")
-			if result.IsArray() {
-				t_result_slice := result.Array()
-				for _, r := range t_result_slice {
-					key := r.Get("id").String()
-					// child folders didn't add into to folders
-					if _, ok := folders[key]; !ok {
-						v := r.Map()
-						folders[key] = v
-						t_id_list = append(t_id_list, key)
-					}
-				}
-			}
-		}
-	}
-
-	return s, f
+	return t_results, s, f, err
 }
 
 func deleteOneEmail(access_token, folder_id, msg_id, proxy *string) (bool, error) {
@@ -612,58 +591,6 @@ func searchEmailByKeyword(access_token, keyword *string, from, size int, proxy *
 	return content, nil
 }
 
-// get filtered mails by a keyword in specific folder with it's folder_id
-// count: specific count of mails to read, when count <=0, means read all mails
-// return: the mails in []gjson.Result, the success operation count, the failure operation account, and the error
-func getFilteredMails(folder_id, access_token, keyword *string, count int, proxy *string) ([]gjson.Result, int, int, error) {
-	var content string
-	var err error
-	var s, f int = 0, 0
-	var t_result_slice []gjson.Result
-	// quote the keyword
-	params := map[string]any{}
-	params["$orderby"] = "receivedDateTime ASC"
-	// escape keyword
-	tmp := fmt.Sprintf("%v", *keyword)
-	// tmp = url.QueryEscape(tmp)
-	params["$filter"] = fmt.Sprintf("receivedDateTime gt 1900-01-01T00:00:00Z and contains(body/content,'%v')", tmp)
-	// set $top
-	t_top := count
-	if t_top <= 0 {
-		t_top = ReadMailsCount
-	}
-	params["$top"] = t_top
-	t_url, err := genGraphApiUrl(params, "me/mailFolders", *folder_id, "messages")
-	if err != nil {
-		return t_result_slice, s, f, err
-	}
-	t_fetched := 0
-	for {
-		content, err = performGraphApiGet(access_token, &t_url, proxy)
-		if err != nil {
-			f += 1
-			break
-		}
-		s += 1
-		t_values := gjson.Get(content, "value")
-		if !t_values.IsArray() {
-			err = fmt.Errorf("invalid response")
-			break
-		}
-		t_values_slice := t_values.Array()
-		t_fetched += len(t_values_slice)
-		t_result_slice = append(t_result_slice, t_values_slice...)
-		t_next_url := gjson.Get(content, ODataNextLink).String()
-		// no more results
-		if len(t_next_url) == 0 || (count > 0 && t_fetched >= count) {
-			break
-		}
-		t_url = t_next_url
-		// time.Sleep(APIInterval)
-	}
-	return t_result_slice, s, f, err
-}
-
 // get all mail folders
 func getAllMailFolders(access_token, proxy *string) ([]gjson.Result, int, int, error) {
 	var t_result_slice []gjson.Result
@@ -684,6 +611,62 @@ func getAllMailFolders(access_token, proxy *string) ([]gjson.Result, int, int, e
 			break
 		}
 		t_result_slice = append(t_result_slice, t_values.Array()...)
+		t_next_url := gjson.Get(content, ODataNextLink).String()
+		// no more results
+		if len(t_next_url) == 0 {
+			break
+		}
+		t_url = t_next_url
+	}
+	return t_result_slice, s, f, err
+}
+
+// folder info like
+//
+//	{
+//		  "id": "AQMkADYAAAIBDAAAAA==",
+//		  "displayName": "Inbox",
+//		  "parentFolderId": "AQMkADYAAAIBCAAAAA==",
+//		  "childFolderCount": 1,
+//		  "unreadItemCount": 70,
+//		  "totalItemCount": 71,
+//		  "isHidden": false
+//	}
+//
+// get all mail folders from root, or get children folder list from folder_id, if isHidden is false
+// return [][4]string as [(parent's id, it's own id, number of child folder, total Item Count in this folder)]
+func getAllMailFoldersNew(folder_id, access_token, proxy *string) ([][4]interface{}, int, int, error) {
+	var s, f int = 0, 0
+	var err error
+	var content string
+	var t_url string
+	if folder_id == nil || *folder_id == "" {
+		t_url, _ = genGraphApiUrl(map[string]any{}, "/me/mailFolders")
+	} else {
+		t_url, _ = genGraphApiUrl(map[string]any{}, "/me/mailFolders", *folder_id, "childFolders")
+	}
+
+	var t_result_slice [][4]interface{}
+	for {
+		content, err = performGraphApiGet(access_token, &t_url, proxy)
+		if err != nil {
+			f += 1
+			break
+		}
+		s += 1
+		t_values := gjson.Get(content, "value").Array()
+		for _, r := range t_values {
+			is_hidden := r.Get("isHidden").Bool()
+			// just as part of return if it does not hidden
+			if !is_hidden {
+				t_result_slice = append(t_result_slice, [4]interface{}{
+					r.Get("parentFolderId").String(),
+					r.Get("id").String(),
+					r.Get("childFolderCount").Int(),
+					r.Get("totalItemCount").Int(),
+				})
+			}
+		}
 		t_next_url := gjson.Get(content, ODataNextLink).String()
 		// no more results
 		if len(t_next_url) == 0 {
@@ -719,130 +702,66 @@ func getSpecificFolderId(access_token, proxy *string, folder_name_list []*string
 	return folder_id_list, s, f, nil
 }
 
-// delete specific mails by keywords under specific folders, each string in keywords will be a condition to query mails to delete
-// we delete mails in "Inbox", "Sent Items", "Drafts"
-func deleteOutlookMails(access_token *string, keywords []string, quantity_for_delete int, proxy *string) (int, int) {
-	var ok bool
-	var s, f int = 0, 0
-	t_deleted := 0
-	// get all folders, get the folder_id of "Inbox", "Sent Items", "Drafts"
-	target_folder_list, t_s, t_f, err := getSpecificFolderId(access_token, proxy, []*string{&MailBoxFolderInBox, &MailBoxFolderSent, &MailBoxFolderDrafts})
-	s += t_s
-	f += t_f
-	if err != nil || len(target_folder_list) == 0 {
-		return s, f
-	}
-	for _, folder_id := range target_folder_list {
-		// loop keywords, search mails and delete mails
-		for _, t_keywords := range keywords {
-		OUTER_LOOP:
-			for {
-				t_result_list, t_s, t_f, err := getFilteredMails(&folder_id, access_token, &t_keywords, quantity_for_delete, proxy)
-				s += t_s
-				f += t_f
-				// bad request, or network issue or other error, rather than empty search result
-				if err != nil {
-					break
-				}
-				if len(t_result_list) == 0 {
-					break
-				}
-
-				for _, r := range t_result_list {
-					t_msg_id := r.Get("id").String()
-					t_is_read := r.Get("isRead").Bool()
-					t_folder_id := r.Get("parentFolderId").String()
-					if !t_is_read {
-						// read this message
-						// time.Sleep(APIInterval)
-						t_s, t_f := readOneMail(access_token, &t_folder_id, &t_msg_id, proxy)
-						s += t_s
-						f += t_f
-					}
-					// do deleteOneEmail
-					// time.Sleep(APIInterval)
-					ok, err = deleteOneEmail(access_token, &t_folder_id, &t_msg_id, proxy)
-					if err != nil || !ok {
-						// fail to delete
-						f += 1
-					} else {
-						// successfully delete
-						s += 1
-					}
-					t_deleted += 1 // add 1 into t_deleted, mean we try to delete one mail
-					if t_deleted >= quantity_for_delete {
-						break OUTER_LOOP
-					}
-				}
-			}
-		}
-	}
-
-	return s, f
-}
-
 // use https://graph.microsoft.com/v1.0/search/query
-func searchAndLoopMails(access_token *string, keywords []string, fetch_quantity int, proxy *string, read_unread bool) (int, int) {
+//
+//	return list - [(t_folder_id, t_msg_id, t_is_read)], count of successful call, count of failure call, f, error
+func searchMailsByKeyword(access_token *string, keyword *string, fetch_quantity int, proxy *string, read_unread bool) ([][3]interface{}, int, int, error) {
 	var s, f int = 0, 0
 	var fetched int
 	t_from := 0
+	var t_list [][3]interface{}
 	// loop keywords, search mails and delete mails
-	for _, t_keywords := range keywords {
-		for {
-			content, err := searchEmailByKeyword(access_token, &t_keywords, t_from, ReadMailsCount, proxy)
-			// bad request, or network issue or other error, rather than empty search result
-			if err != nil {
-				f += 1
-				break
-			}
-			// get search results in path "content.value[0].hitsContainers[0]" use gjson
-			t_search_content := gjson.Get(content, "value.0.hitsContainers.0").String()
-			// no matched results, return as one successful try
-			if t_search_content == "" {
-				s += 1
-				break
-			}
-			t_hits_string := gjson.Get(t_search_content, "hits").String()
-			// t_total := gjson.Get(t_search_content, "total").Int()
-			t_more_results_available := gjson.Get(t_search_content, "moreResultsAvailable").Bool()
-			// empty search results, return as one successful try
-			if len(t_hits_string) == 0 {
-				s += 1
-				break
-			}
-			t_msg_id_list := gjson.Get(t_hits_string, "#.hitId").Array()
-			t_is_read_list := gjson.Get(t_hits_string, "#.resource.isRead").Array()
-			t_folder_id_list := gjson.Get(t_hits_string, "#.resource.parentFolderId").Array()
-			if len(t_msg_id_list) == 0 || len(t_folder_id_list) == 0 || len(t_is_read_list) == 0 {
-				s += 1
-				break
-			}
-			for i := 0; i < len(t_msg_id_list); i++ {
-				t_msg_id := t_msg_id_list[i].String()
-				t_is_read := t_is_read_list[i].Bool()
-				t_folder_id := t_folder_id_list[i].String()
-				if read_unread && !t_is_read {
-					// read this message if it is not read yet
-					// time.Sleep(APIInterval)
-					t_s, t_f := readOneMail(access_token, &t_folder_id, &t_msg_id, proxy)
-					s += t_s
-					f += t_f
-				}
-			}
-			fetched += len(t_msg_id_list)
-			// no more results available or fetched enough mails, break
-			if !t_more_results_available || fetched >= fetch_quantity {
-				break
-			}
-			t_from += len(t_msg_id_list)
+	t_keywords := *keyword
+	for {
+		content, err := searchEmailByKeyword(access_token, &t_keywords, t_from, fetch_quantity, proxy)
+		// bad request, or network issue or other error, rather than empty search result
+		if err != nil {
+			f += 1
+			break
 		}
+		// get search results in path "content.value[0].hitsContainers[0]" use gjson
+		t_search_content := gjson.Get(content, "value.0.hitsContainers.0").String()
+		// no matched results, return as one successful try
+		if t_search_content == "" {
+			s += 1
+			break
+		}
+		t_hits_string := gjson.Get(t_search_content, "hits").String()
+		// t_total := gjson.Get(t_search_content, "total").Int()
+		t_more_results_available := gjson.Get(t_search_content, "moreResultsAvailable").Bool()
+		// empty search results, return as one successful try
+		if len(t_hits_string) == 0 {
+			s += 1
+			break
+		}
+		t_msg_id_list := gjson.Get(t_hits_string, "#.hitId").Array()
+		t_is_read_list := gjson.Get(t_hits_string, "#.resource.isRead").Array()
+		t_folder_id_list := gjson.Get(t_hits_string, "#.resource.parentFolderId").Array()
+		if len(t_msg_id_list) == 0 || len(t_folder_id_list) == 0 || len(t_is_read_list) == 0 {
+			s += 1
+			break
+		}
+		for i := 0; i < len(t_msg_id_list); i++ {
+			t_msg_id := t_msg_id_list[i].String()
+			t_is_read := t_is_read_list[i].Bool()
+			t_folder_id := t_folder_id_list[i].String()
+			if read_unread && !t_is_read {
+				t_list = append(t_list, [3]interface{}{t_folder_id, t_msg_id, t_is_read})
+			}
+		}
+		fetched += len(t_msg_id_list)
+		// no more results available or fetched enough mails, break
+		if !t_more_results_available || fetched >= fetch_quantity {
+			break
+		}
+		t_from += len(t_msg_id_list)
 	}
-	return s, f
+	return t_list, s, f, nil
 }
 
-// get mailFolders delta
+// get mails delta
 // TODO: read messages from delta
-func getMailFoldersDelta(access_token, folder_id, proxy *string) (int, int) {
+func getMailsDelta(access_token, folder_id, proxy *string) (int, int) {
 	t_url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders", *folder_id, "messages", "delta")
 	_, err := performGraphApiGet(access_token, &t_url, proxy)
 	if err != nil {
@@ -851,68 +770,146 @@ func getMailFoldersDelta(access_token, folder_id, proxy *string) (int, int) {
 	return 1, 0
 }
 
-// list unread mails
-func listUnreadMails(access_token, proxy *string, count int, read_unread bool) (int, int) {
-	t_s, t_f := readMailsFromFolder(access_token, nil, ReadMailsCount, proxy, true, true, read_unread)
-	return t_s, t_f
-}
-
-// send email
-func sendEmail(access_token, proxy, subject, email_content, to *string) (int, int) {
-	t_url, _ := genGraphApiUrl(map[string]any{}, "/me/sendMail")
-	t_json_content := NewEmailContentString(subject, &MailContentHtml, email_content, to, false)
-	ok, _ := performGraphApiPostSendMail(access_token, &t_url, &t_json_content, proxy)
-	if !ok {
+// get mails folder delta
+// TODO: read messages from delta
+func getMailFoldersDelta(access_token, proxy *string) (int, int) {
+	t_url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders", "delta")
+	_, err := performGraphApiGet(access_token, &t_url, proxy)
+	if err != nil {
 		return 0, 1
 	}
 	return 1, 0
 }
 
-func WorkingOnMails(id uint, access_token *string, out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, to *string) {
-	var s, f int = 0, 0
+// send email
+func sendEmail(access_token, proxy, subject, email_content, to *string) (bool, error) {
+	t_url, _ := genGraphApiUrl(map[string]any{}, "/me/sendMail")
+	t_json_content := NewEmailContentString(subject, &MailContentHtml, email_content, to, false)
+	return performGraphApiPostSendMail(access_token, &t_url, &t_json_content, proxy)
+}
+
+// do list unread mails from root, or from a folder
+func MailListMailsFrom(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
 	t_start_at := time.Now()
-	t_s, t_f := listUnreadMails(access_token, proxy, ms_config.Mail.ReadMails.Quantity, ms_config.Mail.ReadMails.Enabled)
-	s += t_s
-	f += t_f
-	// time.Sleep(APIInterval)
-	t_s, t_f = readMailsFromAllFolders(access_token, proxy, ms_config.Mail.ReadMails.Enabled)
-	s += t_s
-	f += t_f
-	// time.Sleep(APIInterval)
-	t_s, t_f = searchAndLoopMails(access_token, ms_config.Mail.SearchMails.Keywords, ms_config.Mail.SearchMails.Quantity, proxy, ms_config.Mail.SearchMails.ReadUnread)
-	s += t_s
-	f += t_f
-	// do deleteOutlookMails just according the config file
-	if ms_config.Mail.AutoDeleteMails.Enabled {
-		// time.Sleep(APIInterval)
-		t_s, t_f = deleteOutlookMails(access_token, ms_config.Mail.AutoDeleteMails.Keywords, ms_config.Mail.AutoDeleteMails.Quantity, proxy)
-		s += t_s
-		f += t_f
+	var s, f int = 0, 0
+	var t_list [][3]interface{}
+	var id uint
+	var access_token *string
+	var read_attachments bool
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
 	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	var folder_id *string
+	if args[ArgFolderId] != nil {
+		folder_id = args[ArgFolderId].(*string)
+	}
+	if _, ok := args[ArgReadAttachments]; ok {
+		read_attachments = args[ArgReadAttachments].(bool)
+	}
+	if id > 0 && len(*access_token) > 0 {
+		t_list, s, f, _ = getMailsFromFolder(access_token, folder_id, ms_config.Mail.ReadMails.Quantity, proxy, true, ms_config.Mail.ReadMails.ReadUnread, nil)
+	}
+
 	t_end_at := time.Now()
+	t_task_list := []*Task{}
+	// append task to MailReadMail only if ReadUnread is true
+	if ms_config.Mail.ReadMails.ReadUnread {
+		for _, t := range t_list {
+			t_folder_id := t[0].(string)
+			t_mail_id := t[1].(string)
+			is_read := t[2].(bool)
+			if !is_read {
+				t_task := &Task{
+					Func: MailReadMail,
+					Args: MsArgs{
+						ArgUserID:          id,
+						ArgAccessToken:     access_token,
+						ArgMailId:          &t_mail_id,
+						ArgFolderId:        &t_folder_id,
+						ArgReadAttachments: read_attachments,
+					},
+				}
+				t_task_list = append(t_task_list, t_task)
+			}
+		}
+	}
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeMail,
+		OpID:      OpTypeMailListRootUnreadMail,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
 		Duration:  t_durations_milliseconds,
 		EndTime:   &t_end_at,
+		Tasks:     t_task_list,
 	}
 }
 
-// do mail read, include listUnreadMails() and readMailsFromAllFolders()
-func WorkingOnMailsRead(id uint, access_token *string, out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, to *string) {
-	var s, f int = 0, 0
+// read one mail
+func MailReadMail(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
 	t_start_at := time.Now()
-	t_s, t_f := listUnreadMails(access_token, proxy, ms_config.Mail.ReadMails.Quantity, ms_config.Mail.ReadMails.Enabled)
-	s += t_s
-	f += t_f
-	// time.Sleep(APIInterval)
-	t_s, t_f = readMailsFromAllFolders(access_token, proxy, ms_config.Mail.ReadMails.Enabled)
-	s += t_s
-	f += t_f
+	var t_result [4]interface{}
+	var ok, read_attachments bool
+	var s, f int = 0, 0
+	var folder_id *string
+	var mail_id *string
+	var id uint
+	var access_token *string
+	var t_task_list []*Task
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgFolderId] != nil {
+		folder_id = args[ArgFolderId].(*string)
+	}
+	if args[ArgMailId] != nil {
+		mail_id = args[ArgMailId].(*string)
+	}
+	if _, ok := args[ArgReadAttachments]; ok {
+		read_attachments = args[ArgReadAttachments].(bool)
+	}
+	if id > 0 && len(*access_token) > 0 {
+		t_result, ok, _ = readOneMail(access_token, folder_id, mail_id, proxy)
+		if ok {
+			s += 1
+			if len(t_result) > 0 {
+				is_read := t_result[2].(bool)
+				has_attachments := t_result[3].(bool)
+				if !is_read {
+					t_task_list = append(t_task_list, &Task{
+						Func: MailReadMarkMailAsRead,
+						Args: MsArgs{
+							ArgUserID:      id,
+							ArgAccessToken: access_token,
+							ArgMailId:      mail_id,
+							ArgFolderId:    folder_id,
+						},
+					})
+				}
+				if has_attachments && read_attachments {
+					t_task_list = append(t_task_list, &Task{
+						Func: MailReadListMailsAttachments,
+						Args: MsArgs{
+							ArgUserID:          id,
+							ArgAccessToken:     access_token,
+							ArgMailId:          mail_id,
+							ArgFolderId:        folder_id,
+							ArgReadAttachments: &read_attachments,
+						},
+					})
+				}
+			}
+		} else {
+			f += 1
+		}
+	}
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
@@ -923,36 +920,578 @@ func WorkingOnMailsRead(id uint, access_token *string, out chan *ApiResult, prox
 		StartTime: &t_start_at,
 		Duration:  t_durations_milliseconds,
 		EndTime:   &t_end_at,
+		Tasks:     t_task_list,
+	}
+}
+
+func MailReadListMailsAttachments(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+	t_start_at := time.Now()
+	var t_result []string
+	var ok bool
+	var s, f int = 0, 0
+	var folder_id *string
+	var mail_id *string
+	var id uint
+	var access_token *string
+	var t_task_list []*Task
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgFolderId] != nil {
+		folder_id = args[ArgFolderId].(*string)
+	}
+	if args[ArgMailId] != nil {
+		mail_id = args[ArgMailId].(*string)
+	}
+	if id > 0 && len(*access_token) > 0 {
+		t_result, ok, _ = listMailsAttachments(access_token, folder_id, mail_id, proxy)
+		if ok {
+			s += 1
+			for _, attachment_id := range t_result {
+				t_task_list = append(t_task_list, &Task{
+					Func: MailReadDownloadAttachment,
+					Args: MsArgs{
+						ArgUserID:       id,
+						ArgAccessToken:  access_token,
+						ArgMailId:       mail_id,
+						ArgFolderId:     folder_id,
+						ArgAttachmentId: &attachment_id,
+					},
+				})
+			}
+		} else {
+			f += 1
+		}
+	}
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailReadMailsAttachments,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+		Tasks:     t_task_list,
+	}
+}
+
+func MailReadDownloadAttachment(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+	t_start_at := time.Now()
+	var ok bool
+	var s, f int = 0, 0
+	var folder_id, mail_id, attachment_id *string
+	var id uint
+	var access_token *string
+	var t_task_list []*Task
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgFolderId] != nil {
+		folder_id = args[ArgFolderId].(*string)
+	}
+	if args[ArgMailId] != nil {
+		mail_id = args[ArgMailId].(*string)
+	}
+	if args[ArgAttachmentId] != nil {
+		attachment_id = args[ArgAttachmentId].(*string)
+	}
+	if id > 0 && len(*access_token) > 0 && len(*attachment_id) > 0 {
+		ok, _ = downloadMailsAttachment(access_token, folder_id, mail_id, attachment_id, proxy)
+		if ok {
+			s += 1
+		} else {
+			f += 1
+		}
+	}
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailReadMailsAttachments,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+		Tasks:     t_task_list,
+	}
+}
+
+func MailReadMarkMailAsRead(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+	t_start_at := time.Now()
+	var ok bool
+	var s, f int = 0, 0
+	var folder_id, mail_id *string
+	var id uint
+	var access_token *string
+	var t_task_list []*Task
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgFolderId] != nil {
+		folder_id = args[ArgFolderId].(*string)
+	}
+	if args[ArgMailId] != nil {
+		mail_id = args[ArgMailId].(*string)
+	}
+	if id > 0 && len(*access_token) > 0 {
+		ok, _ = readMailMarkAsRead(access_token, folder_id, mail_id, proxy)
+		if ok {
+			s += 1
+		} else {
+			f += 1
+		}
+	}
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailReadMarkMailAsRead,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+		Tasks:     t_task_list,
+	}
+}
+
+// list all mail folders from root or a folder, and make some tasks in chan out as []*Task
+// these tasks include read mail's delta, read child folder and read mails from folder
+func MailListMailFolders(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+	t_start_at := time.Now()
+	var s, f int = 0, 0
+	var t_list [][4]interface{}
+	var folder_id *string
+	var id uint
+	var access_token *string
+	var read_attachments bool
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgFolderId] != nil {
+		folder_id = args[ArgFolderId].(*string)
+	}
+	if _, ok := args[ArgReadAttachments]; ok {
+		read_attachments = args[ArgReadAttachments].(bool)
+	}
+	if id > 0 && len(*access_token) > 0 {
+		t_list, s, f, _ = getAllMailFoldersNew(folder_id, access_token, proxy)
+	}
+	t_end_at := time.Now()
+	t_task_list := []*Task{}
+	for _, t := range t_list {
+		t_own_id := t[1].(string)
+		// read mail's delta
+		t_task_list = append(t_task_list, &Task{
+			Func: MailReadMailsDelta,
+			Args: MsArgs{
+				ArgUserID:          id,
+				ArgAccessToken:     access_token,
+				ArgFolderId:        &t_own_id,
+				ArgReadAttachments: read_attachments,
+			},
+		})
+		// read child folder, if it has child folder
+		t_child_folder_count := t[2].(int64)
+		if t_child_folder_count > 0 {
+			t_task_list = append(t_task_list, &Task{
+				Func: MailListMailFolders,
+				Args: MsArgs{
+					ArgUserID:          id,
+					ArgAccessToken:     access_token,
+					ArgFolderId:        &t_own_id,
+					ArgReadAttachments: read_attachments,
+				},
+			})
+		}
+		// read mails from folder
+		t_total_item_count := t[3].(int64)
+		if t_total_item_count > 0 {
+			t_task_list = append(t_task_list, &Task{
+				Func: MailListMailsFromFolder,
+				Args: MsArgs{
+					ArgUserID:          id,
+					ArgAccessToken:     access_token,
+					ArgFolderId:        &t_own_id,
+					ArgReadAttachments: read_attachments,
+				},
+			})
+		}
+	}
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailListMailFolder,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+		Tasks:     t_task_list,
+	}
+}
+
+// read folder's delta
+func MailReadMailFoldersDelta(id uint, access_token *string, out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+	var s, f int = 0, 0
+	t_start_at := time.Now()
+	t_s, t_f := getMailFoldersDelta(access_token, proxy)
+	s += t_s
+	f += t_f
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailReadMailFoldersDelta,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+		Tasks:     []*Task{},
+	}
+}
+
+// read mail's delta
+func MailReadMailsDelta(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+	t_start_at := time.Now()
+	var s, f int = 0, 0
+	var folder_id *string
+	var id uint
+	var access_token *string
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgFolderId] != nil {
+		folder_id = args[ArgFolderId].(*string)
+	}
+	if id > 0 && len(*access_token) > 0 {
+		s, f = getMailsDelta(access_token, folder_id, proxy)
+	}
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailReadMailsDelta,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+		Tasks:     []*Task{},
+	}
+}
+
+// do list mails from folder,
+func MailListMailsFromFolder(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+	var s, f int = 0, 0
+	t_start_at := time.Now()
+	var folder_id *string
+	var t_list [][3]interface{}
+	var id uint
+	var access_token *string
+	var read_attachments bool
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgFolderId] != nil {
+		folder_id = args[ArgFolderId].(*string)
+	}
+	if _, ok := args[ArgReadAttachments]; ok {
+		read_attachments = args[ArgReadAttachments].(bool)
+	}
+	if id > 0 && len(*access_token) > 0 {
+		t_list, s, f, _ = getMailsFromFolder(access_token,
+			folder_id,
+			ms_config.Mail.ReadMailFolders.Quantity,
+			proxy,
+			false,
+			ms_config.Mail.ReadMailFolders.ReadUnread, nil)
+	}
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	t_task_list := []*Task{}
+	// read un-read mails, if ReadUnread is true
+	if ms_config.Mail.ReadMailFolders.ReadUnread {
+		for _, t := range t_list {
+			t_folder_id := t[0].(string)
+			t_mail_id := t[1].(string)
+			is_read := t[2].(bool)
+			if !is_read {
+				t_task := &Task{
+					Func: MailReadMail,
+					Args: MsArgs{
+						ArgUserID:          id,
+						ArgAccessToken:     access_token,
+						ArgMailId:          &t_mail_id,
+						ArgFolderId:        &t_folder_id,
+						ArgReadAttachments: read_attachments,
+					},
+				}
+				t_task_list = append(t_task_list, t_task)
+			}
+		}
+	}
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailListRootUnreadMail,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+		Tasks:     t_task_list,
 	}
 }
 
 // do mail search
-func WorkingOnMailsSearch(id uint, access_token *string, out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, to *string) {
-	var s, f int = 0, 0
+func MailsSearch(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
 	t_start_at := time.Now()
-	t_s, t_f := searchAndLoopMails(access_token, ms_config.Mail.SearchMails.Keywords, ms_config.Mail.SearchMails.Quantity, proxy, ms_config.Mail.SearchMails.ReadUnread)
-	s += t_s
-	f += t_f
+	var s, f int = 0, 0
+	var t_list [][3]interface{}
+	var t_keyword *string
+	var id uint
+	var access_token *string
+	var read_attachments bool
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgKeyword] != nil {
+		t_keyword = args[ArgKeyword].(*string)
+	}
+	if _, ok := args[ArgReadAttachments]; ok {
+		read_attachments = args[ArgReadAttachments].(bool)
+	}
+	// do search only if keyword is not empty
+	if len(*t_keyword) > 0 && id > 0 && len(*access_token) > 0 {
+		t_list, s, f, _ = searchMailsByKeyword(access_token, t_keyword, ms_config.Mail.SearchMails.Quantity, proxy, ms_config.Mail.SearchMails.ReadUnread)
+		t_end_at := time.Now()
+		t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+		t_task_list := []*Task{}
+		// read un-read mails, if ReadUnread is true
+		if ms_config.Mail.SearchMails.ReadUnread {
+			for _, t := range t_list {
+				t_folder_id := t[0].(string)
+				t_mail_id := t[1].(string)
+				is_read := t[2].(bool)
+				if !is_read {
+					t_task := &Task{
+						Func: MailReadMail,
+						Args: MsArgs{
+							ArgUserID:          id,
+							ArgAccessToken:     access_token,
+							ArgMailId:          &t_mail_id,
+							ArgFolderId:        &t_folder_id,
+							ArgReadAttachments: read_attachments,
+						},
+					}
+					t_task_list = append(t_task_list, t_task)
+				}
+			}
+		}
+		out <- &ApiResult{
+			ID:        id,
+			OpID:      OpTypeMailSearch,
+			S:         s,
+			F:         f,
+			StartTime: &t_start_at,
+			Duration:  t_durations_milliseconds,
+			EndTime:   &t_end_at,
+			Tasks:     t_task_list,
+		}
+	}
+}
+
+// This is the beginning of mail deletion
+func MailsDelListSpecificMailFolders(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+	t_start_at := time.Now()
+	var s, f int = 0, 0
+	t_task_list := []*Task{}
+	var target_folder_list []string
+	var id uint
+	var access_token *string
+	var read_attachments bool
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if _, ok := args[ArgReadAttachments]; ok {
+		read_attachments = args[ArgReadAttachments].(bool)
+	}
+	// get all folders, get the folder_id of "Inbox", "Sent Items", "Drafts"
+	if id > 0 && len(*access_token) > 0 {
+		target_folder_list, s, f, _ = getSpecificFolderId(access_token,
+			proxy,
+			[]*string{
+				&MailBoxFolderInBox,
+				&MailBoxFolderSent,
+				&MailBoxFolderDrafts,
+			})
+	}
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	for _, t := range target_folder_list {
+		// add task to ListFilteredMails, Loop ms_config.Mail.AutoDeleteMails.Keywords
+		for _, t_keyword := range ms_config.Mail.AutoDeleteMails.Keywords {
+			// add task to ListFilteredMails, Loop
+			t_task_list = append(t_task_list, &Task{
+				Func: MailsDelListFilteredMails,
+				Args: MsArgs{
+					ArgUserID:          id,
+					ArgAccessToken:     access_token,
+					ArgFolderId:        &t,
+					ArgKeyword:         &t_keyword,
+					ArgReadAttachments: read_attachments,
+				},
+			})
+		}
+		// add task to ListFilteredMails, Loop
+	}
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeMailSearch,
+		OpID:      OpTypeMailListMailFolder,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
 		Duration:  t_durations_milliseconds,
 		EndTime:   &t_end_at,
+		Tasks:     t_task_list,
 	}
 }
 
-// do mail deletion
-func WorkingOnMailsDelete(id uint, access_token *string, out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, to *string) {
-	var s, f int = 0, 0
+// list filtered mails by a keyword in specific folder with it's folder_id
+// count: specific count of mails to read, when count <=0, means read all mails
+// return list - [(t_folder_id, t_msg_id, is_read)], count of successful call, count of failure call, f, error
+func MailsDelListFilteredMails(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
 	t_start_at := time.Now()
-	t_s, t_f := deleteOutlookMails(access_token, ms_config.Mail.AutoDeleteMails.Keywords, ms_config.Mail.AutoDeleteMails.Quantity, proxy)
-	s += t_s
-	f += t_f
+	var s, f int = 0, 0
+	// escape keyword
+	var t_keyword *string
+	var t_folder_id *string
+	var t_list [][3]interface{}
+	var id uint
+	var access_token *string
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgKeyword] != nil {
+		t_keyword = args[ArgKeyword].(*string)
+	}
+	if args[ArgFolderId] != nil {
+		t_folder_id = args[ArgFolderId].(*string)
+	}
+	if id > 0 && len(*access_token) > 0 {
+		t_list, s, f, _ = getMailsFromFolder(access_token, t_folder_id, ms_config.Mail.AutoDeleteMails.Quantity, proxy, true, false, t_keyword)
+	}
+	t_task_list := []*Task{}
+	// put task to task list, for each mail, read it, if ms_config.Mail.AutoDeleteMails.ReadUnread and mail is unread.
+	if ms_config.Mail.AutoDeleteMails.ReadUnread {
+		for _, t := range t_list {
+			t_folder_id := t[0].(string)
+			t_mail_id := t[1].(string)
+			is_read := t[2].(bool)
+			if !is_read {
+				t_task := &Task{
+					Func: MailReadMarkMailAsRead,
+					Args: MsArgs{
+						ArgUserID:      id,
+						ArgAccessToken: access_token,
+						ArgMailId:      &t_mail_id,
+						ArgFolderId:    &t_folder_id,
+					},
+				}
+				t_task_list = append(t_task_list, t_task)
+			}
+		}
+	}
+	// put task to task list, for each mail, delete it.
+	for _, t := range t_list {
+		t_folder_id := t[0].(string)
+		t_mail_id := t[1].(string)
+		t_task := &Task{
+			Func: MailsDelDeleteOneMail,
+			Args: MsArgs{
+				ArgUserID:      id,
+				ArgAccessToken: access_token,
+				ArgMailId:      &t_mail_id,
+				ArgFolderId:    &t_folder_id,
+			},
+		}
+		t_task_list = append(t_task_list, t_task)
+	}
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	//
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeMailReadFilteredMails,
+		S:         s,
+		F:         f,
+		StartTime: &t_end_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+		Tasks:     t_task_list,
+	}
+}
+
+// just do mail deletion
+func MailsDelDeleteOneMail(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+	t_start_at := time.Now()
+	var s, f int = 0, 0
+	var t_folder_id *string
+	var t_msg_id *string
+	var id uint
+	var access_token *string
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgFolderId] != nil {
+		t_folder_id = args[ArgFolderId].(*string)
+	}
+	if args[ArgMailId] != nil {
+		t_msg_id = args[ArgMailId].(*string)
+	}
+	// delete one mail, return true if success, false if failure.
+	if id > 0 && len(*access_token) > 0 {
+		ok, _ := deleteOneEmail(access_token, t_folder_id, t_msg_id, proxy)
+		if ok {
+			s += 1
+		} else {
+			f += 1
+		}
+	}
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
@@ -963,73 +1502,44 @@ func WorkingOnMailsDelete(id uint, access_token *string, out chan *ApiResult, pr
 		StartTime: &t_start_at,
 		Duration:  t_durations_milliseconds,
 		EndTime:   &t_end_at,
+		Tasks:     nil, // no task in this case.,
 	}
 }
 
 // do mail send
-func WorkingOnMailsSend(id uint, access_token *string, out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, to *string) {
+func MailsSend(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
 	var s, f int = 0, 0
 	t_start_at := time.Now()
-	t_s, t_f := sendEmail(access_token, proxy, &ms_config.Mail.AutoSendMails.Subject, &ms_config.Mail.AutoSendMails.TemplateContent, to)
-	s += t_s
-	f += t_f
+	var to *string
+	var id uint
+	var access_token *string
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if args[ArgTo] != nil {
+		to = args[ArgTo].(*string)
+	}
+	if id > 0 && len(*access_token) > 0 {
+		ok, _ := sendEmail(access_token, proxy, &ms_config.Mail.AutoSendMails.Subject, &ms_config.Mail.AutoSendMails.TemplateContent, to)
+		if ok {
+			s += 1
+		} else {
+			f += 1
+		}
+	}
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeMailDelete,
+		OpID:      OpTypeMailSend,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
 		Duration:  t_durations_milliseconds,
 		EndTime:   &t_end_at,
+		Tasks:     nil, // no task in this case.,
 	}
 }
-
-// func DoListAllMails(id uint, access_token string, out chan ApiResult, proxy string) {
-// 	t_start_at := time.Now()
-// 	t_s, t_f := readMailsFromFolder(access_token, "", ReadMailsCount, proxy, false, false)
-// 	t_end_at := time.Now()
-// 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
-// 	out <- ApiResult{
-// 		ID:        id,
-// 		OpID:      OpTypeMail,
-// 		S:         t_s,
-// 		F:         t_f,
-// 		StartTime: t_start_at.Unix(),
-// 		Duration:  t_durations_milliseconds,
-// 		EndTime:   t_end_at.Unix(),
-// 	}
-// }
-
-// func DoListAllMailFolders(id uint, access_token string, out chan ApiResult, proxy string) {
-// 	t_start_at := time.Now()
-// 	t_s, t_f := readMailsFromAllFolders(access_token, proxy)
-// 	t_end_at := time.Now()
-// 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
-// 	out <- ApiResult{
-// 		ID:        id,
-// 		OpID:      OpTypeMail,
-// 		S:         t_s,
-// 		F:         t_f,
-// 		StartTime: t_start_at.Unix(),
-// 		Duration:  t_durations_milliseconds,
-// 		EndTime:   t_end_at.Unix(),
-// 	}
-// }
-
-// func DoMailDeletion(id uint, access_token string, out chan ApiResult, proxy string) {
-// 	t_start_at := time.Now()
-// 	t_s, t_f := deleteOutlookMails(access_token, config.MailAutoDeleteKeyWords, config.MailAutoDeleteQuantity, proxy)
-// 	t_end_at := time.Now()
-// 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
-// 	out <- ApiResult{
-// 		ID:        id,
-// 		OpID:      OpTypeMail,
-// 		S:         t_s,
-// 		F:         t_f,
-// 		StartTime: t_start_at.Unix(),
-// 		Duration:  t_durations_milliseconds,
-// 		EndTime:   t_end_at.Unix(),
-// 	}
-// }

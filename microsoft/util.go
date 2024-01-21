@@ -122,6 +122,20 @@ func performGraphApiPost(access_token, url_str, data, proxy *string) (string, er
 	return string(t_b), nil
 }
 
+func performGraphApiPatch(access_token, url_str, data, proxy *string) (bool, error) {
+	resp, err := performGraphApi(&OpPatch, access_token, url_str, data, proxy)
+	if err != nil {
+		return false, err
+	}
+	if resp.StatusCode != 200 {
+		defer resp.Body.Close()
+		t_b, _ := io.ReadAll(resp.Body)
+		err = fmt.Errorf("%v, %v", resp.Status, string(t_b))
+		return false, err
+	}
+	return true, nil
+}
+
 func performGraphApiPostSendMail(access_token, url_str, data, proxy *string) (bool, error) {
 	resp, err := performGraphApi(&OpPost, access_token, url_str, data, proxy)
 	if err != nil {
@@ -160,7 +174,7 @@ func performGraphApiDelete(access_token, url_str, proxy *string) (bool, error) {
 func performGraphApi(action, access_token, url_str, data, proxy *string) (*http.Response, error) {
 	var req *http.Request
 	var err error
-	if action != nil && *action == OpPost {
+	if action != nil && (*action == OpPost || *action == OpPatch) {
 		b := bytes.NewBuffer([]byte(*data))
 		req, err = http.NewRequest(*action, *url_str, b)
 	} else {
@@ -174,7 +188,7 @@ func performGraphApi(action, access_token, url_str, data, proxy *string) (*http.
 	req.Header.Set("Authorization", *access_token)
 	req.Header.Set("Accept", "application/json")
 	// set Content-Type if we post data
-	if action != nil && *action == OpPost {
+	if action != nil && (*action == OpPost || *action == OpPatch) {
 		req.Header.Set("Content-Type", "application/json")
 	} else {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

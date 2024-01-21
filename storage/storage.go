@@ -735,6 +735,52 @@ func UpdateStatsByStats(osm map[TypeUserIDOpID]*Stats) error {
 	return UpdateStatsSlice(c_os_for_update)
 }
 
+func UpdateStatsByStatsNew(stats []*Stats) error {
+	// no stats for update
+	if len(stats) == 0 {
+		return nil
+	}
+	// all user's opstats data
+	t_c_os, e := GetAllStats()
+	if e != nil {
+		return e
+	}
+	// make a map to stat
+	t_stats_map := make(map[TypeUserIDOpID]*Stats, 0)
+	for _, v := range stats {
+		t_key := TypeUserIDOpID{
+			UserId: v.UserID,
+			OpId:   v.OpID,
+		}
+		// add into exists item
+		if _, ok := t_stats_map[t_key]; ok {
+			o_v := t_stats_map[t_key]
+			o_v.Success += v.Success
+			o_v.Failure += v.Failure
+			o_v.LastTime = v.LastTime
+		} else {
+			t_stats_map[t_key] = v
+		}
+	}
+	// stat list just for update
+	c_os_for_update := make([]*Stats, 0)
+	for _, c_os := range t_c_os {
+		t_key := TypeUserIDOpID{
+			UserId: c_os.UserID,
+			OpId:   c_os.OpID,
+		}
+		// add new stats
+		if _, ok := t_stats_map[t_key]; ok {
+			t_v := t_stats_map[t_key]
+			c_os.Success += t_v.Success
+			c_os.Failure += t_v.Failure
+			c_os.LastTime = t_v.LastTime
+			c_os_for_update = append(c_os_for_update, c_os)
+		}
+	}
+	return UpdateStatsSlice(c_os_for_update)
+}
+
 func GetAllStats() ([]*Stats, error) {
 	ops := make([]*Stats, 0)
 	e := DB.Table(Table_Stats).Find(&ops).Error
@@ -795,6 +841,9 @@ func (d *OpDetails) TableName() string {
 }
 
 func SaveOpDetails(os []*OpDetails) error {
+	if len(os) == 0 {
+		return nil
+	}
 	return DB.Save(os).Error
 }
 

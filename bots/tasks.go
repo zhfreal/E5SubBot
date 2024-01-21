@@ -35,8 +35,17 @@ func NotifyStats() {
 }
 
 func PerformTasks() {
+	if ok := JobLock.TryLock(); !ok {
+		logger.Info("<PerformTasks> job is running, skip this time")
+		return
+	}
+	defer JobLock.Unlock()
+	var t_start_time time.Time
+	var t_end_time time.Time
 	// record this task
-	t_start_time := time.Now()
+	if ConfigYamlObj.Log.SaveTaskRecords {
+		t_start_time = time.Now()
+	}
 	// get all users config
 	all_users_config, e := storage.GetAllUsersEnabled()
 	if e != nil {
@@ -61,11 +70,12 @@ func PerformTasks() {
 	var done chan bool
 	// tasks_count := 0
 	// init all chan
-	// make first parameter into t_len_users_config*<amount of counts> to make the limitation higher
 	thread_count := utils.MinInt(t_len_users_config*3, ConfigYamlObj.Goroutine)
-	in = make(chan *ms.Task, t_len_users_config*3)
-	out = make(chan *ms.ApiResult, t_len_users_config*3)
-	done = make(chan bool, thread_count*2)
+	// make more rooms for chan, consider we split the tasks into smaller tasks.
+	chan_num := t_len_users_config * 10
+	in = make(chan *ms.Task, chan_num)
+	out = make(chan *ms.ApiResult, chan_num)
+	done = make(chan bool, thread_count)
 	// loop all_users_config, get user's mail
 	mails_list := []*string{}
 	for _, uc := range all_users_config {
@@ -112,44 +122,62 @@ func PerformTasks() {
 				}
 				return
 			}
-			// args := ms.Args{
-			// 	Func:        ms.WorkingOnMails,
-			// 	ID:          user_id,
-			// 	AccessToken: t_token,
-			// }
-			// WorkingOnMails more specific to read, search, delete and send (add later)
 
-			args := &ms.Args{
-				ID:          user_id,
-				AccessToken: &t_token,
-				To:          to,
+			args := map[string]interface{}{
+				ms.ArgUserID:          user_id,
+				ms.ArgAccessToken:     &t_token,
+				ms.ArgTo:              to,
+				ms.ArgReadAttachments: false,
 			}
+			// read mails from root
 			if ConfigYamlObj.MS.Mail.ReadMails.Enabled {
 				wg_task.Add(1)
+				args[ms.ArgReadAttachments] = ConfigYamlObj.MS.Mail.ReadMails.ReadAttachments
 				in <- &ms.Task{
-					Func: ms.WorkingOnMailsRead,
+					Func: ms.MailListMailsFrom,
 					Args: args,
 				}
 			}
-			if ConfigYamlObj.MS.Mail.SearchMails.Enabled {
+			// list mail folders
+			if ConfigYamlObj.MS.Mail.ReadMailFolders.Enabled {
 				wg_task.Add(1)
+				args[ms.ArgReadAttachments] = ConfigYamlObj.MS.Mail.ReadMailFolders.ReadAttachments
 				in <- &ms.Task{
-					Func: ms.WorkingOnMailsSearch,
+					Func: ms.MailListMailFolders,
 					Args: args,
 				}
 			}
+			// search mails
+			if ConfigYamlObj.MS.Mail.SearchMails.Enabled {
+				args[ms.ArgReadAttachments] = ConfigYamlObj.MS.Mail.SearchMails.ReadAttachments
+				for _, t_keyword := range ConfigYamlObj.MS.Mail.SearchMails.Keywords {
+					wg_task.Add(1)
+					in <- &ms.Task{
+						Func: ms.MailsSearch,
+						Args: map[string]interface{}{
+							ms.ArgUserID:      user_id,
+							ms.ArgAccessToken: &t_token,
+							ms.ArgTo:          to,
+							ms.ArgKeyword:     &t_keyword,
+						},
+					}
+				}
+			}
+			// delete mails
 			if ConfigYamlObj.MS.Mail.AutoDeleteMails.Enabled {
 				wg_task.Add(1)
+				args[ms.ArgReadAttachments] = ConfigYamlObj.MS.Mail.AutoDeleteMails.ReadAttachments
 				in <- &ms.Task{
-					Func: ms.WorkingOnMailsDelete,
+					Func: ms.MailsDelListSpecificMailFolders,
 					Args: args,
 				}
 
 			}
+			// send mail
 			if ConfigYamlObj.MS.Mail.AutoSendMails.Enabled {
 				wg_task.Add(1)
 				in <- &ms.Task{
-					Func: ms.WorkingOnMailsSend,
+					Func: ms.MailsSend,
 					Args: args,
 				}
 
@@ -178,6 +206,7 @@ func PerformTasks() {
 	var details []*storage.OpDetails
 
 	t_count := 0
+	var cache []*ms.Task
 RESULT_LOPPER:
 	for {
 		select {
@@ -193,22 +222,61 @@ RESULT_LOPPER:
 			stats = append(stats, t_s)
 			t_count++
 			// record the details
-			d := &storage.OpDetails{
-				UserID:    r.ID,
-				OpID:      r.OpID,
-				StartTime: r.StartTime.Unix(),
-				EndTime:   r.EndTime.Unix(),
-				Success:   r.S,
-				Failure:   r.F,
-				Duration:  r.Duration,
+			if ConfigYamlObj.Log.SaveOpDetails {
+				d := &storage.OpDetails{
+					UserID:    r.ID,
+					OpID:      r.OpID,
+					StartTime: r.StartTime.Unix(),
+					EndTime:   r.EndTime.Unix(),
+					Success:   r.S,
+					Failure:   r.F,
+					Duration:  r.Duration,
+				}
+				details = append(details, d)
+				if len(details) >= MaxOpDetailsRecordCached {
+					e := storage.SaveOpDetails(details)
+					if e != nil {
+						logger.Errorf("<PerformTasks> failed to store details, failed with: %v\n", e.Error())
+					} else {
+						// clean details while storage succeed
+						details = []*storage.OpDetails{}
+					}
+				}
 			}
-			details = append(details, d)
 			// print debug log about this result
 			logger.Debugf("<PerformTasks> got result for user - %v, op - %v, s/f - %v/%v, finish at - %v, duration - %v\n", r.ID, r.OpID, r.S, r.F, r.EndTime.Format("15:04:05"), r.Duration)
-			logger.Debugf("<PerformTasks> %v/%v, %v\n", wg_task.GetCount(), t_count, r)
+			logger.Debugf("<PerformTasks> busy-%v, done-%v, todo-%v\n", wg_task.GetCount(), t_count, len(in)+len(cache))
+			t_task_list := r.Tasks
+			// put task into cache
+			if len(t_task_list) > 0 {
+				cache = append(cache, t_task_list...)
+			}
+			// check length of stats, store back into db if stats has too many records
+			if len(stats) >= MaxStatsRecordCached {
+				e := storage.UpdateStatsByStatsNew(stats)
+				if e != nil {
+					logger.Errorf("<PerformTasks> failed to store stats, failed with: %v\n", e.Error())
+				} else {
+					// clean stats while storage succeed
+					stats = []*storage.Stats{}
+				}
+			}
 		default:
+			// put task from cache into in
+			spared := chan_num - len(in)
+			for spared > 0 && len(cache) > 0 {
+				wg_task.Add(1)
+				t_task := cache[0]
+				in <- t_task
+				if len(cache) > 1 {
+					cache = cache[1:]
+				} else {
+					cache = []*ms.Task{}
+				}
+				spared = chan_num - len(in)
+			}
 			// when we get enough results and task producer all finished, then break the looper, we are finishing
-			if wg_task.GetCount() == 0 && wg_prd.GetCount() == 0 {
+			if wg_task.GetCount() == 0 && wg_prd.GetCount() == 0 && len(in) == 0 && len(cache) == 0 {
 				break RESULT_LOPPER
 			}
 			time.Sleep(50 * time.Millisecond)
@@ -224,38 +292,33 @@ RESULT_LOPPER:
 	wg_prd.Wait()
 	wg_con.Wait()
 	wg_task.Wait()
-	// task end here
-	t_end_time := time.Now()
-	t_duration := t_end_time.Sub(t_start_time).Milliseconds()
-	logger.Debugf("<PerformTasks> all tasks done, duration: %vms\n", t_duration)
-	// record task record
-	t_record := &storage.TaskRecords{
-		StartTime: t_start_time.Unix(),
-		EndTime:   t_end_time.Unix(),
-		Duration:  t_duration,
-	}
-	var task_records []*storage.TaskRecords
-	task_records = append(task_records, t_record)
+
 	// close all chan
 	close(in)
 	close(out)
 	close(done)
-	// handle stats
-	t_stats_map := make(map[storage.TypeUserIDOpID]*storage.Stats, 0)
-	for _, v := range stats {
-		t_key := storage.TypeUserIDOpID{
-			UserId: v.UserID,
-			OpId:   v.OpID,
-		}
-		t_stats_map[t_key] = v
-	}
 	// update storage
-	storage.UpdateStatsByStats(t_stats_map)
+	e = storage.UpdateStatsByStatsNew(stats)
+	if e != nil {
+		logger.Errorf("<PerformTasks> failed to store stats, failed with: %v\n", e.Error())
+	}
 	// just store op_details and task_records when setting is on
 	if ConfigYamlObj.Log.SaveOpDetails {
 		storage.SaveOpDetails(details)
 	}
 	if ConfigYamlObj.Log.SaveTaskRecords {
+		// task end here
+		t_end_time = time.Now()
+		t_duration := t_end_time.Sub(t_start_time).Milliseconds()
+		logger.Debugf("<PerformTasks> all tasks done, duration: %vms\n", t_duration)
+		// record task record
+		t_record := &storage.TaskRecords{
+			StartTime: t_start_time.Unix(),
+			EndTime:   t_end_time.Unix(),
+			Duration:  t_duration,
+		}
+		var task_records []*storage.TaskRecords
+		task_records = append(task_records, t_record)
 		storage.SaveTaskRecords(task_records)
 	}
 }
@@ -264,7 +327,7 @@ func WorkingOnMsFromChan(in chan *ms.Task, out chan *ms.ApiResult, done chan boo
 	for {
 		select {
 		case task := <-in:
-			task.Func(task.Args.ID, task.Args.AccessToken, out, &proxy, ConfigYamlObj.MS, task.Args.To)
+			task.Func(out, &proxy, ConfigYamlObj.MS, task.Args)
 		case ok := <-done:
 			if ok {
 				wg.Done()
