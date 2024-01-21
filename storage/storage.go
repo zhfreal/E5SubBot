@@ -755,7 +755,7 @@ func UpdateStatsByStatsNew(stats []*Stats) error {
 		}
 		t_key := TypeUserIDOpID{
 			UserId: v.UserID,
-			OpId:   v.OpID,
+			OpId:   t_op_id,
 		}
 		// add into exists item
 		if _, ok := t_stats_map[t_key]; ok {
