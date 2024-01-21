@@ -748,6 +748,11 @@ func UpdateStatsByStatsNew(stats []*Stats) error {
 	// make a map to stat
 	t_stats_map := make(map[TypeUserIDOpID]*Stats, 0)
 	for _, v := range stats {
+		t_op_id := v.OpID
+		// count all new ops into OpTypeMailRead, make storage smaller
+		if t_op_id >= ms.OpTypeMailListRootUnreadMail && t_op_id <= ms.OpTypeMailReadMarkMailAsRead {
+			t_op_id = ms.OpTypeMailRead
+		}
 		t_key := TypeUserIDOpID{
 			UserId: v.UserID,
 			OpId:   v.OpID,
