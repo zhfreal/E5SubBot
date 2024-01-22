@@ -489,34 +489,48 @@ func readMailMarkAsRead(access_token, folder_id, msg_id, proxy *string) (bool, e
 
 // get mails under folder
 //
-//	return list - [(t_folder_id, t_msg_id, is_read)], count of successful call, count of failure call, f, error
-func getMailsFromFolder(access_token, folder_id *string, count int, proxy *string, read_latest, get_unread bool, content_filter *string) ([][3]interface{}, int, int, error) {
+//	 support multiple keywords
+//		return list - [(t_folder_id, t_msg_id, is_read)], count of successful call, count of failure call, f, error
+func getMailsFromFolder(access_token, folder_id *string, count int, proxy *string, read_latest, get_unread bool, keywords []*string) ([][3]interface{}, int, int, error) {
 	var content, t_url string
 	var err error
 	var s, f int
 	var t_results [][3]interface{}
 	param := map[string]any{}
 	// read unread mails, make sure we just do one call to finish this job
+	var filter_rules string
 	if get_unread {
+		filter_rules = "isRead eq false"
 		param["$filter"] = "isRead eq false"
 	}
-	if content_filter != nil && len(*content_filter) > 0 {
-		if param["$filter"] != nil {
-			param["$filter"] = fmt.Sprintf("%v and contains(body/content,'%v')", param["$filter"], *content_filter)
+	if len(keywords) > 0 {
+		var t_filter_rules string
+		// filter via multiple keywords
+		for _, t_k := range keywords {
+			if len(t_filter_rules) > 0 {
+				t_filter_rules += " or "
+			}
+			t_filter_rules += fmt.Sprintf("contains(body/content,'%v')", *t_k)
+		}
+		if len(filter_rules) > 0 {
+			filter_rules = fmt.Sprintf("%v and (%v)", filter_rules, t_filter_rules)
 		} else {
-			param["$filter"] = fmt.Sprintf("contains(body/content,'%v')", *content_filter)
+			filter_rules += t_filter_rules
 		}
 	}
 	// order result by receivedDateTime reverse order
 	if read_latest {
 		param["$orderby"] = "receivedDateTime DESC"
-		t_rcv_time_filter := "receivedDateTime gt 1900-01-01T00:00:00Z"
+		t_filter_rules := "receivedDateTime gt 1900-01-01T00:00:00Z"
 		// if read_latest, we need order by receivedDateTime as descend order, and make sure receivedDateTime in $filter's first parameter
-		if param["$filter"] != nil {
-			param["$filter"] = fmt.Sprintf("%v and %v", t_rcv_time_filter, param["$filter"])
+		if len(filter_rules) > 0 {
+			filter_rules = fmt.Sprintf("%v and (%v)", t_filter_rules, filter_rules)
 		} else {
-			param["$filter"] = t_rcv_time_filter
+			filter_rules = t_filter_rules
 		}
+	}
+	if len(filter_rules) > 0 {
+		param["$filter"] = filter_rules
 	}
 	// set $top to count, make sure we just do one call to finish this job
 	t_top := count
@@ -576,14 +590,14 @@ func deleteOneEmail(access_token, folder_id, msg_id, proxy *string) (bool, error
 }
 
 // graph REST API for search: https://graph.microsoft.com/v1.0/search/query
-func searchEmailByKeyword(access_token, keyword *string, from, size int, proxy *string) (string, error) {
+func searchEmailByKeywords(access_token *string, keywords []*string, from, size int, proxy *string) (string, error) {
 	var content string
 	var err error
 	t_url, err := genGraphApiUrl(map[string]any{}, "/search/query")
 	if err != nil {
 		return "", fmt.Errorf("fail to generate url, failed with %v", err.Error())
 	}
-	t_data := NewRequestsDataString(keyword, from, size)
+	t_data := NewRequestsDataStringMultiple(keywords, from, size)
 	content, err = performGraphApiPost(access_token, &t_url, &t_data, proxy)
 	if err != nil {
 		return "", fmt.Errorf("fail to search email, failed with %v", err.Error())
@@ -705,15 +719,14 @@ func getSpecificFolderId(access_token, proxy *string, folder_name_list []*string
 // use https://graph.microsoft.com/v1.0/search/query
 //
 //	return list - [(t_folder_id, t_msg_id, t_is_read)], count of successful call, count of failure call, f, error
-func searchMailsByKeyword(access_token *string, keyword *string, fetch_quantity int, proxy *string, read_unread bool) ([][3]interface{}, int, int, error) {
+func searchMailsByKeywords(access_token *string, keywords []*string, fetch_quantity int, proxy *string, read_unread bool) ([][3]interface{}, int, int, error) {
 	var s, f int = 0, 0
 	var fetched int
 	t_from := 0
 	var t_list [][3]interface{}
-	// loop keywords, search mails and delete mails
-	t_keywords := *keyword
+
 	for {
-		content, err := searchEmailByKeyword(access_token, &t_keywords, t_from, fetch_quantity, proxy)
+		content, err := searchEmailByKeywords(access_token, keywords, t_from, fetch_quantity, proxy)
 		// bad request, or network issue or other error, rather than empty search result
 		if err != nil {
 			f += 1
@@ -1270,7 +1283,6 @@ func MailsSearch(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs,
 	t_start_at := time.Now()
 	var s, f int = 0, 0
 	var t_list [][3]interface{}
-	var t_keyword *string
 	var id uint
 	var access_token *string
 	var read_attachments bool
@@ -1280,15 +1292,16 @@ func MailsSearch(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs,
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if args[ArgKeyword] != nil {
-		t_keyword = args[ArgKeyword].(*string)
-	}
 	if _, ok := args[ArgReadAttachments]; ok {
 		read_attachments = args[ArgReadAttachments].(bool)
 	}
 	// do search only if keyword is not empty
-	if len(*t_keyword) > 0 && id > 0 && len(*access_token) > 0 {
-		t_list, s, f, _ = searchMailsByKeyword(access_token, t_keyword, ms_config.Mail.SearchMails.Quantity, proxy, ms_config.Mail.SearchMails.ReadUnread)
+	if len(ms_config.Mail.SearchMails.Keywords) > 0 && id > 0 && len(*access_token) > 0 {
+		var t_keyword_slice []*string
+		for i := range ms_config.Mail.SearchMails.Keywords {
+			t_keyword_slice = append(t_keyword_slice, &ms_config.Mail.SearchMails.Keywords[i])
+		}
+		t_list, s, f, _ = searchMailsByKeywords(access_token, t_keyword_slice, ms_config.Mail.SearchMails.Quantity, proxy, ms_config.Mail.SearchMails.ReadUnread)
 		t_end_at := time.Now()
 		t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 		t_task_list := []*Task{}
@@ -1346,31 +1359,43 @@ func MailsDelListSpecificMailFolders(out chan *ApiResult, proxy *string, ms_conf
 	}
 	// get all folders, get the folder_id of "Inbox", "Sent Items", "Drafts"
 	if id > 0 && len(*access_token) > 0 {
-		target_folder_list, s, f, _ = getSpecificFolderId(access_token,
-			proxy,
-			[]*string{
-				&MailBoxFolderInBox,
-				&MailBoxFolderSent,
-				&MailBoxFolderDrafts,
-			})
+		var folder_list []*string
+		for _, folder_name := range ms_config.Mail.AutoDeleteMails.FolderName {
+			folder_list = append(folder_list, &folder_name)
+		}
+		if len(folder_list) == 0 {
+			folder_list = append(folder_list, &MailBoxFolderInBox)
+		}
+		target_folder_list, s, f, _ = getSpecificFolderId(access_token, proxy, folder_list)
 	}
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	for _, t := range target_folder_list {
-		// add task to ListFilteredMails, Loop ms_config.Mail.AutoDeleteMails.Keywords
-		for _, t_keyword := range ms_config.Mail.AutoDeleteMails.Keywords {
-			// add task to ListFilteredMails, Loop
+		t_len := len(ms_config.Mail.AutoDeleteMails.Keywords)
+		if t_len > 0 {
 			t_task_list = append(t_task_list, &Task{
 				Func: MailsDelListFilteredMails,
 				Args: MsArgs{
 					ArgUserID:          id,
 					ArgAccessToken:     access_token,
 					ArgFolderId:        &t,
-					ArgKeyword:         &t_keyword,
 					ArgReadAttachments: read_attachments,
 				},
 			})
 		}
+		// for _, t_keyword := range ms_config.Mail.AutoDeleteMails.Keywords {
+		// 	// add task to ListFilteredMails, Loop
+		// 	t_task_list = append(t_task_list, &Task{
+		// 		Func: MailsDelListFilteredMails,
+		// 		Args: MsArgs{
+		// 			ArgUserID:          id,
+		// 			ArgAccessToken:     access_token,
+		// 			ArgFolderId:        &t,
+		// 			ArgKeyword:         &t_keyword,
+		// 			ArgReadAttachments: read_attachments,
+		// 		},
+		// 	})
+		// }
 		// add task to ListFilteredMails, Loop
 	}
 	out <- &ApiResult{
@@ -1392,7 +1417,6 @@ func MailsDelListFilteredMails(out chan *ApiResult, proxy *string, ms_config *co
 	t_start_at := time.Now()
 	var s, f int = 0, 0
 	// escape keyword
-	var t_keyword *string
 	var t_folder_id *string
 	var t_list [][3]interface{}
 	var id uint
@@ -1403,14 +1427,15 @@ func MailsDelListFilteredMails(out chan *ApiResult, proxy *string, ms_config *co
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if args[ArgKeyword] != nil {
-		t_keyword = args[ArgKeyword].(*string)
-	}
 	if args[ArgFolderId] != nil {
 		t_folder_id = args[ArgFolderId].(*string)
 	}
 	if id > 0 && len(*access_token) > 0 {
-		t_list, s, f, _ = getMailsFromFolder(access_token, t_folder_id, ms_config.Mail.AutoDeleteMails.Quantity, proxy, true, false, t_keyword)
+		var t_keyword_slice []*string
+		for i := range ms_config.Mail.AutoDeleteMails.Keywords {
+			t_keyword_slice = append(t_keyword_slice, &ms_config.Mail.AutoDeleteMails.Keywords[i])
+		}
+		t_list, s, f, _ = getMailsFromFolder(access_token, t_folder_id, ms_config.Mail.AutoDeleteMails.Quantity, proxy, true, false, t_keyword_slice)
 	}
 	t_task_list := []*Task{}
 	// put task to task list, for each mail, read it, if ms_config.Mail.AutoDeleteMails.ReadUnread and mail is unread.

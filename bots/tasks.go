@@ -150,7 +150,10 @@ func PerformTasks() {
 			// search mails
 			if ConfigYamlObj.MS.Mail.SearchMails.Enabled {
 				args[ms.ArgReadAttachments] = ConfigYamlObj.MS.Mail.SearchMails.ReadAttachments
-				for _, t_keyword := range ConfigYamlObj.MS.Mail.SearchMails.Keywords {
+				// we rand choice a keyword in ConfigYamlObj.MS.Mail.SearchMails.Keywords, rather than loop keywords
+				// when loop keywords, we may have issues to do search at almost same time
+				t_len := len(ConfigYamlObj.MS.Mail.SearchMails.Keywords)
+				if t_len > 0 {
 					wg_task.Add(1)
 					in <- &ms.Task{
 						Func: ms.MailsSearch,
@@ -158,10 +161,21 @@ func PerformTasks() {
 							ms.ArgUserID:      user_id,
 							ms.ArgAccessToken: &t_token,
 							ms.ArgTo:          to,
-							ms.ArgKeyword:     &t_keyword,
 						},
 					}
 				}
+				// for _, t_keyword := range ConfigYamlObj.MS.Mail.SearchMails.Keywords {
+				// 	wg_task.Add(1)
+				// 	in <- &ms.Task{
+				// 		Func: ms.MailsSearch,
+				// 		Args: map[string]interface{}{
+				// 			ms.ArgUserID:      user_id,
+				// 			ms.ArgAccessToken: &t_token,
+				// 			ms.ArgTo:          to,
+				// 			ms.ArgKeyword:     &t_keyword,
+				// 		},
+				// 	}
+				// }
 			}
 			// delete mails
 			if ConfigYamlObj.MS.Mail.AutoDeleteMails.Enabled {

@@ -202,6 +202,7 @@ type ConfigAutoDelete struct {
 	Enabled         bool     `yaml:"enabled" default:"false"`
 	Keyword         string   `yaml:"keyword"`
 	Keywords        []string `yaml:"keywords"`
+	FolderName      []string `yaml:"foldername"`
 	Quantity        int      `yaml:"quantity" default:"20"`
 	ReadUnread      bool     `yaml:"readunread" default:"true"`
 	ReadAttachments bool     `yaml:"readattachments" default:"false"`

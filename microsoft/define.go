@@ -146,6 +146,7 @@ var (
 	ArgKeyword         string = "Keyword"
 	ArgReadAttachments string = "ReadAttachments"
 	ArgAttachmentId    string = "AttachmentId"
+	ArgFolderName      string = "FolderName"
 )
 
 func detect_error(data []byte) []byte {
@@ -263,8 +264,38 @@ func NewRequestsData(keyword *string, from, size int) *RequestSearchData {
 	return r
 }
 
+func NewRequestsDataMultiple(keywords []*string, from, size int) *RequestSearchData {
+	r := &RequestSearchData{}
+	var t_query_string string
+	for _, keyword := range keywords {
+		if len(t_query_string) > 0 {
+			t_query_string += " OR "
+		}
+		t_query_string += fmt.Sprintf("\"%v\"", *keyword)
+	}
+	// assign values to its fields
+	r.ReqDataList = []ReqSearchData{
+		{
+			EntityTypes: []string{"message"},
+			Query: struct {
+				QueryString string `json:"queryString"`
+			}{
+				QueryString: t_query_string,
+			},
+			From: from,
+			Size: size,
+		},
+	}
+	return r
+}
+
 func NewRequestsDataString(keyword *string, from, size int) string {
 	b_s, _ := json.Marshal(NewRequestsData(keyword, from, size))
+	return string(b_s)
+}
+
+func NewRequestsDataStringMultiple(keywords []*string, from, size int) string {
+	b_s, _ := json.Marshal(NewRequestsDataMultiple(keywords, from, size))
 	return string(b_s)
 }
 
