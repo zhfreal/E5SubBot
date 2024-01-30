@@ -1,22 +1,83 @@
 bot_token: YOUR_BOT_TOKEN
-# socks5: 127.0.0.1:1080
+proxy: ""
 bindmax: 999
 goroutine: 20
-admin: 111,222,333
-errlimit: 999
+admin: 
+  - 358920093
+errlimit: 9
 notice: |-
-  aaa
-  bbb
-  ccc
-cron: "1 */1 * * *"
-cron_notice: "*/10 * * * *"
-db: sqlite
-table: users
-# mysql:
-#  host: 127.0.0.1
-#  port: 3306
-#  user: root
-#  password: pwd
-#  database: e5sub
-sqlite:
-  db: data.db
+  welcome!
+cronconf:
+  enabled: true
+  task: "*/5 * * * *"
+  notice: "*/30 * * * *"
+workspace: "/var/lib/e5bot/"
+db: 
+  dbtype: sqlite
+  # mysql:
+  #  host: 127.0.0.1
+  #  port: 3306
+  #  user: root
+  #  password: pwd
+  #  database: e5bot
+  sqlite:
+    dbfile: e5bot.db
+ms:
+  mail:
+    autodeletemails:
+      enabled: true
+      keyword: ""
+      keywords:
+       - "As promised in the last email"
+       - "George Best quote"
+       - "Delivery has failed to these recipients or groups"
+       - "ieSoft Best quote"
+      foldername:
+       - "Inbox"
+       - "Sent Items"
+      quantity: 20
+      readunread: true
+      readattachments: false
+    readmails:
+      enabled: true
+      quantity: 20
+      readunread: true
+      readattachments: false
+    readmailfolders:
+      enabled: true
+      quantity: 20
+      readunread: true
+      readattachments: true
+    searchmails:
+      enabled: true
+      keyword: ""
+      keywords:
+       - "As promised in the last email"
+       - "George Best quote"
+       - "Delivery has failed to these recipients or groups"
+       - "ieSoft Best quote"
+      quantity: 20
+      readunread: true
+      readattachments: false
+    autosendmails:
+      enabled: true
+      quantity: 20
+      template: "email.html"
+      templatecontent: ""
+      tamplatetype: "html"
+      subject: "ieSoft Best quote"
+  file:
+    listfiles:
+      enable: True
+log:
+    logintofile: true
+    logfile: "log/latest.log"
+    loglevel: "debug"
+    # in MiB
+    maxsize: 5
+    # in days
+    maxage: 7
+    # quantity
+    maxbackups: 20
+    saveopdetails: false
+    savetaskrecords: true

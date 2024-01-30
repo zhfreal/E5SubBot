@@ -223,6 +223,7 @@ func monitor_config_change(file_path string) {
 		*(ConfigYamlObj.MS.Mail.SearchMails) = *(new_config.MS.Mail.SearchMails)
 		*(ConfigYamlObj.MS.Mail.AutoSendMails) = *(new_config.MS.Mail.AutoSendMails)
 		*(ConfigYamlObj.MS.Mail.AutoDeleteMails) = *(new_config.MS.Mail.AutoDeleteMails)
+		*(ConfigYamlObj.MS.File.ListFiles) = *(new_config.MS.File.ListFiles)
 		// resolve template and templatecontent
 		read_mail_template()
 	})

@@ -164,18 +164,6 @@ func PerformTasks() {
 						},
 					}
 				}
-				// for _, t_keyword := range ConfigYamlObj.MS.Mail.SearchMails.Keywords {
-				// 	wg_task.Add(1)
-				// 	in <- &ms.Task{
-				// 		Func: ms.MailsSearch,
-				// 		Args: map[string]interface{}{
-				// 			ms.ArgUserID:      user_id,
-				// 			ms.ArgAccessToken: &t_token,
-				// 			ms.ArgTo:          to,
-				// 			ms.ArgKeyword:     &t_keyword,
-				// 		},
-				// 	}
-				// }
 			}
 			// delete mails
 			if ConfigYamlObj.MS.Mail.AutoDeleteMails.Enabled {
@@ -195,6 +183,30 @@ func PerformTasks() {
 					Args: args,
 				}
 
+			}
+			// list files
+			if ConfigYamlObj.MS.File.ListFiles.Enabled {
+				wg_task.Add(5)
+				in <- &ms.Task{
+					Func: ms.GetMeDrive,
+					Args: args,
+				}
+				in <- &ms.Task{
+					Func: ms.GetMeDriveRootChildren,
+					Args: args,
+				}
+				in <- &ms.Task{
+					Func: ms.GetMeDriveRecent,
+					Args: args,
+				}
+				in <- &ms.Task{
+					Func: ms.GetMeDriveSharedWithMe,
+					Args: args,
+				}
+				in <- &ms.Task{
+					Func: ms.GetMeDriveFollowing,
+					Args: args,
+				}
 			}
 		}(uc, mails_list[i])
 	}

@@ -88,69 +88,6 @@ func NewProxyValid(proxy string) (*ProxyValid, error) {
 }
 
 // define a struct based on config.yaml, to unmarshal config.yaml into this struct.
-// config.yaml has content like:
-// # bot-token: 6478297263:AAFeqBKfNlf5hw1qjogC7KLP22aXRFMMInY
-// bot-token: 6616723465:AAFGrzuUG2Eal_RGLx_URJxj2ZMGlz0njg8
-// #bot-token: 5366662643:AAH4vtyBl5Vp8sXEATDHSofjrBBEMRx7hrw
-// #proxy: socks5://192.168.2.1:1084
-// proxy: ""
-// bind-max: 999
-// goroutine: 20
-// admin:
-//   - 358920093
-// err-limit: 9
-// notice: |-
-//   welcome!
-// cron:
-//   task: "*/5 * * * *"
-//   notice: "*/30 * * * *"
-// workspace: "./"
-// db:
-//   type: sqlite
-//   mysql:
-//     host: 127.0.0.1
-//     port: 3306
-//     user: root
-//     password: pwd
-//     database: e5sub
-//     charset: utf8mb4
-//     tls: true
-//   sqlite:
-//     db-file: data-test.db
-// ms:
-//   mail:
-//     auto-delete:
-//       enabled: true
-//       keyword: ""
-//       keywords:
-//        - "As promised in the last email"
-//        - "George Best quote"
-//        - "Delivery has failed to these recipients or groups"
-//       quantity: 20
-//     read-mails:
-//       enabled: true
-//       quantity: 20
-//       read-unread: true
-//     search-mails:
-//       enabled: true
-//       quantity: 20
-//       read-unread: true
-//     auto-send:
-//       enabled: true
-//       template: "send_mail.html"
-//       template_content: ""
-//       template_type: "html"
-// log:
-//     log-into-file: true
-//     log-file: "logs/latest.log"
-//     log-level: "debug"
-//     # in MiB
-//     max-size: 5
-//     # in days
-//     max-age: 7
-//     # quantity
-//     max-backups: 20
-
 type ConfigYaml struct {
 	BotToken  string      `yaml:"bottoken"`
 	Proxy     string      `yaml:"proxy"`
@@ -190,15 +127,16 @@ type MySqlConfig struct {
 }
 type ConfigMs struct {
 	Mail *ConfigMail `yaml:"mail"`
+	File *ConfigFile `yaml:"file"`
 }
 type ConfigMail struct {
-	AutoDeleteMails *ConfigAutoDelete      `yaml:"autodeletemails"`
+	AutoDeleteMails *ConfigAutoDeleteMails `yaml:"autodeletemails"`
 	ReadMails       *ConfigReadMails       `yaml:"readmails"`
 	ReadMailFolders *ConfigReadMailFolders `yaml:"readmailfolders"`
 	SearchMails     *ConfigSearchMails     `yaml:"searchmails"`
-	AutoSendMails   *ConfigAutoSend        `yaml:"autosendmails"`
+	AutoSendMails   *ConfigAutoSendMails   `yaml:"autosendmails"`
 }
-type ConfigAutoDelete struct {
+type ConfigAutoDeleteMails struct {
 	Enabled         bool     `yaml:"enabled" default:"false"`
 	Keyword         string   `yaml:"keyword"`
 	Keywords        []string `yaml:"keywords"`
@@ -227,12 +165,18 @@ type ConfigSearchMails struct {
 	ReadUnread      bool     `yaml:"readunread" default:"true"`
 	ReadAttachments bool     `yaml:"readattachments" default:"false"`
 }
-type ConfigAutoSend struct {
+type ConfigAutoSendMails struct {
 	Enabled         bool   `yaml:"enabled" default:"false"`
 	Template        string `yaml:"template"`
 	TemplateContent string `yaml:"templatecontent"`
 	TemplateType    string `yaml:"templatetype"`
 	Subject         string `yaml:"subject"`
+}
+type ConfigFile struct {
+	ListFiles *ListFiles `yaml:"listfiles"`
+}
+type ListFiles struct {
+	Enabled bool `yaml:"enabled" default:"true"`
 }
 type ConfigLog struct {
 	LogIntoFile     bool   `yaml:"logintofile" default:"true"`

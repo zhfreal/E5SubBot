@@ -34,6 +34,7 @@ const (
 
 const (
 	OpTypeFile uint = iota + 100 + 1
+	OpTypeFileList
 	OpTypeFileDownload
 	OpTypeFileSearch
 	OpTypeFileUpload
@@ -95,6 +96,8 @@ var (
 		OpTypeMailReadFilteredMails:    "MailsReadFilteredMails",
 		OpTypeMailReadMailsAttachments: "MailsReadMailsAttachments",
 		OpTypeMailReadMarkMailAsRead:   "MailsMarkMailAsRead",
+		OpTypeFile:                     "Files",
+		OpTypeFileList:                 "FilesList",
 	}
 	MailContentHtml     string = "html"
 	MailBoxFolderInBox  string = "Inbox"
