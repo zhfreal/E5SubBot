@@ -112,28 +112,85 @@ Configuration Template:
 
 ```yaml
 bot_token: YOUR_BOT_TOKEN
-# socks5: 127.0.0.1:1080
+proxy: ""
 bindmax: 999
 goroutine: 20
-admin: 111,222,333
-errlimit: 999
+admin: 
+  - 358920093
+errlimit: 9
 notice: |-
-   aaa
-   bbb
-   ccc
-cron: "1 */1 * * *"
-db: sqlite
-table: users
-# mysql:
-#    host: 127.0.0.1
-#    port: 3306
-#    user: root
-#    password: pwd
-#    database: e5sub
-# ssl_mode is only required when the database requires a SSL connection (e.g. TiDB Cloud)
-#    ssl_mode: PREFERRED
-sqlite:
-   db: data.db
+  welcome!
+cronconf:
+  enabled: true
+  task: "*/5 * * * *"
+  notice: "*/30 * * * *"
+workspace: "./"
+db: 
+  dbtype: sqlite
+  # mysql:
+  #  host: 127.0.0.1
+  #  port: 3306
+  #  user: root
+  #  password: pwd
+  #  database: e5sub
+  sqlite:
+    dbfile: data-test.db
+ms:
+  mail:
+    autodeletemails:
+      enabled: true
+      keyword: ""
+      keywords:
+       - "As promised in the last email"
+       - "George Best quote"
+       - "Delivery has failed to these recipients or groups"
+       - "ieSoft Best quote"
+      foldername:
+       - "Inbox"
+       - "Sent Items"
+      quantity: 20
+      readunread: true
+      readattachments: false
+    readmails:
+      enabled: true
+      quantity: 20
+      readunread: true
+      readattachments: false
+    readmailfolders:
+      enabled: true
+      quantity: 20
+      readunread: true
+      readattachments: true
+    searchmails:
+      enabled: true
+      keyword: ""
+      keywords:
+       - "As promised in the last email"
+       - "George Best quote"
+       - "Delivery has failed to these recipients or groups"
+       - "ieSoft Best quote"
+      quantity: 20
+      readunread: true
+      readattachments: false
+    autosendmails:
+      enabled: true
+      quantity: 20
+      template: "email.html"
+      templatecontent: ""
+      tamplatetype: "html"
+      subject: "ieSoft Best quote"
+log:
+    logintofile: true
+    logfile: "log/latest.log"
+    loglevel: "debug"
+    # in MiB
+    maxsize: 5
+    # in days
+    maxage: 7
+    # quantity
+    maxbackups: 20
+    saveopdetails: false
+    savetaskrecords: true
 ```
 
 `bindmax`, `notice`, `admin`,`goroutine`, `errlimit` can be hot updated, just update `config.yml` to save.
@@ -141,13 +198,13 @@ sqlite:
 | Configuration | Explanation                                                                                                                                                                                                                                                                | Default |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
 | bot_token     | Change to your own `BotToken`                                                                                                                                                                                                                                              | -       |
-| socks5        | `Socks5` proxy,if you do not need ,you should delete it. For example: `127.0.0.1:1080`                                                                                                                                                                                     | -       |
+| proxy         | `Socks5` or `http(s)` proxy. For example: `socks5://127.0.0.1:1080` or `http://127.0.1:8080`                                                                                                                                                                               | -       |
 | notice        | Announcement. Merged into `/help`                                                                                                                                                                                                                                          | -       |
 | admin         | The administrator's `tgid`, go to https://t.me/userinfobot to get it, separated by `,`; Administrator permissions: manually call the task, get the total feedback of the task                                                                                              | -       |
 | goroutine     | Concurrent number, don’t be too big                                                                                                                                                                                                                                        | 10      |
 | errlimit      | The maximum number of errors for a single account, automatically unbind the single account and send a notification when it is full, without limiting the number of errors, change the value to a negative number `(-1)`; all errors will be cleared after the bot restarts | 5       |
-| cron          | API call frequency, using `cron` expression                                                                                                                                                                                                                                | -       |
 | bindmax       | Maximum number of bindable                                                                                                                                                                                                                                                 | 5       |
+| cronconf.     | API call frequency, using `cron` expression                                                                                                                                                                                                                                | -       |
 | db            | `mysql` or `sqlite` , Indicates the database type used and sets the corresponding configuration                                                                                                                                                                            | -       |
 | table         | Table name (set table to `users` when upgrading the old version; otherwise, the data table cannot be read)                                                                                                                                                                 | -       |
 | mysql         | To configure `mysql`, create a database in advance                                                                                                                                                                                                                         | -       |
