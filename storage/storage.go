@@ -767,8 +767,7 @@ func UpdateStatsByStatsNew(stats []*Stats) error {
 			t_stats_map[t_key] = v
 		}
 	}
-	// stat list just for update
-	c_os_for_update := make([]*Stats, 0)
+	// update t_stats_map from stored stats
 	for _, c_os := range t_c_os {
 		t_key := TypeUserIDOpID{
 			UserId: c_os.UserID,
@@ -777,11 +776,15 @@ func UpdateStatsByStatsNew(stats []*Stats) error {
 		// add new stats
 		if _, ok := t_stats_map[t_key]; ok {
 			t_v := t_stats_map[t_key]
-			c_os.Success += t_v.Success
-			c_os.Failure += t_v.Failure
-			c_os.LastTime = t_v.LastTime
-			c_os_for_update = append(c_os_for_update, c_os)
+			t_v.Success += c_os.Success
+			t_v.Failure += c_os.Failure
+			// c_os.LastTime = t_v.LastTime
+			// c_os_for_update = append(c_os_for_update, c_os)
 		}
+	}
+	c_os_for_update := make([]*Stats, 0)
+	for _, v := range t_stats_map {
+		c_os_for_update = append(c_os_for_update, v)
 	}
 	return UpdateStatsSlice(c_os_for_update)
 }
