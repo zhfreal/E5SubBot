@@ -71,8 +71,9 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	var t_value *MsgValue
 	this_msg_type := -1
 	// it's a callback reply
-	if update.CallbackQuery != nil && update.CallbackQuery.Message != nil {
-		msg_id = update.CallbackQuery.Message.ID
+	// if update.CallbackQuery != nil && update.CallbackQuery.Message.MessageID != nil {
+	if update.CallbackQuery != nil {
+		msg_id = update.CallbackQuery.Message.MessageID
 		chat_id = update.CallbackQuery.Message.Chat.ID
 		received_action = update.CallbackQuery.Data
 		this_msg_type = ReplyFromCallBack
