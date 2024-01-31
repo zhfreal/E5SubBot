@@ -750,9 +750,10 @@ func UpdateStatsByStatsNew(stats []*Stats) error {
 	for _, v := range stats {
 		t_op_id := v.OpID
 		// count all new ops into OpTypeMailRead, make storage smaller
-		if t_op_id >= ms.OpTypeMailListRootUnreadMail && t_op_id <= ms.OpTypeMailReadMarkMailAsRead {
-			t_op_id = ms.OpTypeMailRead
-		}
+		// it make no difference
+		// if t_op_id >= ms.OpTypeMailListRootUnreadMail && t_op_id <= ms.OpTypeMailReadMarkMailAsRead {
+		// 	t_op_id = ms.OpTypeMailRead
+		// }
 		t_key := TypeUserIDOpID{
 			UserId: v.UserID,
 			OpId:   t_op_id,

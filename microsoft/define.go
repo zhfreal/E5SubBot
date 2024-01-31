@@ -34,10 +34,18 @@ const (
 
 const (
 	OpTypeFile uint = iota + 100 + 1
-	OpTypeFileList
-	OpTypeFileDownload
-	OpTypeFileSearch
-	OpTypeFileUpload
+	OpTypeFileListFiles
+	OpTypeFileDownloadFiles
+	OpTypeFileSearchFiles
+	OpTypeFileUploadFiles
+)
+
+const (
+	OpTypeCalendar uint = iota + 200 + 1
+	OpTypeCalendarListCalendars
+	OpTypeCalendarListEvents
+	OpTypeCalendarListReminders
+	OpTypeCalendarGetSchedule
 )
 
 var (
@@ -97,7 +105,12 @@ var (
 		OpTypeMailReadMailsAttachments: "MailsReadMailsAttachments",
 		OpTypeMailReadMarkMailAsRead:   "MailsMarkMailAsRead",
 		OpTypeFile:                     "Files",
-		OpTypeFileList:                 "FilesList",
+		OpTypeFileListFiles:            "FilesList",
+		OpTypeCalendar:                 "Calendars",
+		OpTypeCalendarListCalendars:    "CalendarsList",
+		OpTypeCalendarListEvents:       "CalendarsListEvents",
+		OpTypeCalendarListReminders:    "CalendarsListReminders",
+		OpTypeCalendarGetSchedule:      "CalendarsGetSchedule",
 	}
 	MailContentHtml     string = "html"
 	MailBoxFolderInBox  string = "Inbox"
@@ -150,6 +163,7 @@ var (
 	ArgReadAttachments string = "ReadAttachments"
 	ArgAttachmentId    string = "AttachmentId"
 	ArgFolderName      string = "FolderName"
+	ArgMailAddr        string = "MailAddr"
 )
 
 func detect_error(data []byte) []byte {
@@ -357,3 +371,52 @@ func NewEmailContentString(subject, contentType, content, to *string, saveToSent
 
 // ////////////////////////////////////////////////////////////
 // ////////////////////////////////////////////////////////////
+//
+//	{
+//		"schedules": ["zhfreal@iesoft.onmicrosoft.com"],
+//		"startTime": {
+//			"dateTime": "2019-03-15T09:00:00",
+//			"timeZone": "GMT Standard Time"
+//		},
+//		"endTime": {
+//			"dateTime": "2019-03-15T18:00:00",
+//			"timeZone": "GMT Standard Time"
+//		},
+//		"availabilityViewInterval": 60
+//	}
+type ScheduleRequest struct {
+	Schedules                []string    `json:"schedules"`
+	StartTime                *TimeObject `json:"startTime"`
+	EndTime                  *TimeObject `json:"endTime"`
+	AvailabilityViewInterval int         `json:"availabilityViewInterval"`
+}
+
+type TimeObject struct {
+	DateTime string `json:"dateTime"`
+	TimeZone string `json:"timeZone"`
+}
+
+func NewScheduleRequest(mail *string, start_time, end_time *time.Time) *ScheduleRequest {
+	t_start_time := start_time.UTC()
+	t_end_time := end_time.UTC()
+	t_sch := ScheduleRequest{
+		Schedules: []string{*mail},
+		StartTime: &TimeObject{
+			DateTime: t_start_time.Format("2006-01-02 15:04:05"),
+			TimeZone: "GMT Standard Time",
+		},
+		EndTime: &TimeObject{
+			DateTime: t_end_time.Format("2006-01-02 15:04:05"),
+			TimeZone: "GMT Standard Time",
+		},
+		AvailabilityViewInterval: 60, // 1 min
+	}
+	return &t_sch
+}
+
+func NewScheduleRequestString(mail *string, start_time, end_time *time.Time) *string {
+	t_sch := NewScheduleRequest(mail, start_time, end_time)
+	b_s, _ := json.Marshal(t_sch)
+	t_b_s := string(b_s)
+	return &t_b_s
+}

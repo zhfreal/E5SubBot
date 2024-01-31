@@ -224,6 +224,10 @@ func monitor_config_change(file_path string) {
 		*(ConfigYamlObj.MS.Mail.AutoSendMails) = *(new_config.MS.Mail.AutoSendMails)
 		*(ConfigYamlObj.MS.Mail.AutoDeleteMails) = *(new_config.MS.Mail.AutoDeleteMails)
 		*(ConfigYamlObj.MS.File.ListFiles) = *(new_config.MS.File.ListFiles)
+		*(ConfigYamlObj.MS.Calendar.ListCalendars) = *(new_config.MS.Calendar.ListCalendars)
+		*(ConfigYamlObj.MS.Calendar.ListEvents) = *(new_config.MS.Calendar.ListEvents)
+		*(ConfigYamlObj.MS.Calendar.ListReminders) = *(new_config.MS.Calendar.ListReminders)
+		*(ConfigYamlObj.MS.Calendar.GetSchedule) = *(new_config.MS.Calendar.GetSchedule)
 		// resolve template and templatecontent
 		read_mail_template()
 	})

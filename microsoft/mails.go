@@ -407,13 +407,15 @@ func readOneMail(access_token, folder_id, msg_id, proxy *string) ([4]interface{}
 	if t_err != nil {
 		return t_result, false, t_err
 	}
+	var t_status_code int
 	var content string
-	content, t_err = performGraphApiGet(access_token, &t_url, proxy)
-	if t_err != nil {
+	t_status_code, content, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	if t_err != nil || t_status_code != 200 {
 		f += 1
 		return t_result, false, t_err
 	}
-	s += 1
+	// treat it as successful just return 200
+	s++
 	is_read := gjson.Get(content, "isRead").Bool()
 	has_attachments := gjson.Get(content, "hasAttachments").Bool()
 	t_result[0] = folder_id
@@ -427,6 +429,7 @@ func readOneMail(access_token, folder_id, msg_id, proxy *string) ([4]interface{}
 func listMailsAttachments(access_token, folder_id, msg_id, proxy *string) ([]string, bool, error) {
 	var s, f int = 0, 0
 	var t_url, content string
+	var t_status_code int
 	var t_err error
 	var t_result []string
 	// get attachments list
@@ -435,12 +438,13 @@ func listMailsAttachments(access_token, folder_id, msg_id, proxy *string) ([]str
 		return t_result, false, t_err
 	}
 	// time.Sleep(APIInterval)
-	content, t_err = performGraphApiGet(access_token, &t_url, proxy)
-	if t_err != nil {
+	t_status_code, content, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	if t_err != nil || t_status_code != 200 {
 		f += 1
 		return t_result, false, t_err
 	}
-	s += 1
+	// treat it as successful just return 200
+	s++
 	t_results := gjson.GetMany(content, "value.#.id")
 	t_id_list := t_results[0].Array()
 	// get attachments content
@@ -453,6 +457,7 @@ func listMailsAttachments(access_token, folder_id, msg_id, proxy *string) ([]str
 // download a mail's attachment
 func downloadMailsAttachment(access_token, folder_id, msg_id, attachment_id, proxy *string) (bool, error) {
 	var t_url, content string
+	var t_status_code int
 	var t_err error
 	// get attachments list
 	t_url, t_err = genGraphApiUrl(query_string_full, getMsgFoldersSubPath(folder_id, msg_id), "/attachments", *attachment_id)
@@ -460,15 +465,18 @@ func downloadMailsAttachment(access_token, folder_id, msg_id, attachment_id, pro
 		return false, t_err
 	}
 	// time.Sleep(APIInterval)
-	content, t_err = performGraphApiGet(access_token, &t_url, proxy)
-	if t_err != nil {
+	t_status_code, content, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	if t_err != nil || t_status_code != 200 {
 		return false, t_err
 	}
+	// treat it as successful just return 200
 	t_attachment_id := gjson.Get(content, "id").String()
+	ok := true
 	if len(t_attachment_id) == 0 || t_attachment_id != *attachment_id {
 		t_err = fmt.Errorf("failed to download attachment")
+		ok = false
 	}
-	return true, t_err
+	return ok, t_err
 }
 
 // mark a mail as read
@@ -493,6 +501,7 @@ func readMailMarkAsRead(access_token, folder_id, msg_id, proxy *string) (bool, e
 //		return list - [(t_folder_id, t_msg_id, is_read)], count of successful call, count of failure call, f, error
 func getMailsFromFolder(access_token, folder_id *string, count int, proxy *string, read_latest, get_unread bool, keywords []*string) ([][3]interface{}, int, int, error) {
 	var content, t_url string
+	var t_status_code int
 	var err error
 	var s, f int
 	var t_results [][3]interface{}
@@ -544,16 +553,18 @@ func getMailsFromFolder(access_token, folder_id *string, count int, proxy *strin
 	}
 	t_fetched := 0
 	for {
-		content, err = performGraphApiGet(access_token, &t_url, proxy)
-		if err != nil {
-			f += 1
+		t_status_code, content, err = performGraphApiGet(access_token, &t_url, proxy)
+		if err != nil || t_status_code != 200 {
+			f++
 			return t_results, s, f, err
 		}
 		// invalid response
-		s += 1
 		if gjson.Get(content, ODataContext).String() == "" {
-			return t_results, s, f, err
+			f++
+			break
+			// return t_results, s, f, err
 		}
+		s++
 		t_message_list := gjson.Get(content, "value").Array()
 		for _, t_msg := range t_message_list {
 			t_raw := t_msg.Raw
@@ -592,15 +603,19 @@ func deleteOneEmail(access_token, folder_id, msg_id, proxy *string) (bool, error
 // graph REST API for search: https://graph.microsoft.com/v1.0/search/query
 func searchEmailByKeywords(access_token *string, keywords []*string, from, size int, proxy *string) (string, error) {
 	var content string
+	var t_status_code int
 	var err error
 	t_url, err := genGraphApiUrl(map[string]any{}, "/search/query")
 	if err != nil {
 		return "", fmt.Errorf("fail to generate url, failed with %v", err.Error())
 	}
 	t_data := NewRequestsDataStringMultiple(keywords, from, size)
-	content, err = performGraphApiPost(access_token, &t_url, &t_data, proxy)
+	t_status_code, content, err = performGraphApiPost(access_token, &t_url, &t_data, proxy)
 	if err != nil {
 		return "", fmt.Errorf("fail to search email, failed with %v", err.Error())
+	}
+	if t_status_code != 200 {
+		return "", fmt.Errorf("fail to search email, status code is %v", t_status_code)
 	}
 	return content, nil
 }
@@ -608,13 +623,14 @@ func searchEmailByKeywords(access_token *string, keywords []*string, from, size 
 // get all mail folders
 func getAllMailFolders(access_token, proxy *string) ([]gjson.Result, int, int, error) {
 	var t_result_slice []gjson.Result
+	var t_status_code int
 	var s, f int = 0, 0
 	var err error
 	var content string
 	t_url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders")
 	for {
-		content, err = performGraphApiGet(access_token, &t_url, proxy)
-		if err != nil {
+		t_status_code, content, err = performGraphApiGet(access_token, &t_url, proxy)
+		if err != nil || t_status_code != 200 {
 			f += 1
 			break
 		}
@@ -654,6 +670,7 @@ func getAllMailFoldersNew(folder_id, access_token, proxy *string) ([][4]interfac
 	var err error
 	var content string
 	var t_url string
+	var t_status_code int
 	if folder_id == nil || *folder_id == "" {
 		t_url, _ = genGraphApiUrl(map[string]any{}, "/me/mailFolders")
 	} else {
@@ -662,8 +679,8 @@ func getAllMailFoldersNew(folder_id, access_token, proxy *string) ([][4]interfac
 
 	var t_result_slice [][4]interface{}
 	for {
-		content, err = performGraphApiGet(access_token, &t_url, proxy)
-		if err != nil {
+		t_status_code, content, err = performGraphApiGet(access_token, &t_url, proxy)
+		if err != nil || t_status_code != 200 {
 			f += 1
 			break
 		}
@@ -776,8 +793,8 @@ func searchMailsByKeywords(access_token *string, keywords []*string, fetch_quant
 // TODO: read messages from delta
 func getMailsDelta(access_token, folder_id, proxy *string) (int, int) {
 	t_url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders", *folder_id, "messages", "delta")
-	_, err := performGraphApiGet(access_token, &t_url, proxy)
-	if err != nil {
+	t_status_code, _, err := performGraphApiGet(access_token, &t_url, proxy)
+	if err != nil || t_status_code != 200 {
 		return 0, 1
 	}
 	return 1, 0
@@ -787,8 +804,8 @@ func getMailsDelta(access_token, folder_id, proxy *string) (int, int) {
 // TODO: read messages from delta
 func getMailFoldersDelta(access_token, proxy *string) (int, int) {
 	t_url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders", "delta")
-	_, err := performGraphApiGet(access_token, &t_url, proxy)
-	if err != nil {
+	t_status_code, _, err := performGraphApiGet(access_token, &t_url, proxy)
+	if err != nil || t_status_code != 200 {
 		return 0, 1
 	}
 	return 1, 0

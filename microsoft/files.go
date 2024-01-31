@@ -11,13 +11,14 @@ import (
 func getMeDrive(access_token, proxy *string) bool {
 	var t_url string
 	var t_err error
+	var t_status_code int
 	t_url, t_err = genGraphApiUrl(map[string]any{}, "me/drive")
 	if t_err != nil {
 		return false
 	}
 	var content string
-	content, t_err = performGraphApiGet(access_token, &t_url, proxy)
-	if t_err != nil {
+	t_status_code, content, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	if t_err != nil || t_status_code != 200 {
 		return false
 	}
 	drive_id := gjson.Get(content, "id").String()
@@ -28,48 +29,52 @@ func getMeDrive(access_token, proxy *string) bool {
 func getMeDriveRootChildren(access_token, proxy *string) bool {
 	var t_url string
 	var t_err error
+	var t_status_code int
 	t_url, t_err = genGraphApiUrl(map[string]any{}, "me/drive/root/children")
 	if t_err != nil {
 		return false
 	}
-	_, t_err = performGraphApiGet(access_token, &t_url, proxy)
-	return t_err == nil
+	t_status_code, _, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	return t_err == nil && t_status_code == 200
 }
 
 // GET /me/drive/recent
 func getMeDriveRecent(access_token, proxy *string) bool {
 	var t_url string
 	var t_err error
+	var t_status_code int
 	t_url, t_err = genGraphApiUrl(map[string]any{}, "me/drive/recent")
 	if t_err != nil {
 		return false
 	}
-	_, t_err = performGraphApiGet(access_token, &t_url, proxy)
-	return t_err == nil
+	t_status_code, _, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	return t_err == nil && t_status_code == 200
 }
 
 // GET /me/drive/sharedWithMe
 func getMeDriveSharedWithMe(access_token, proxy *string) bool {
 	var t_url string
 	var t_err error
+	var t_status_code int
 	t_url, t_err = genGraphApiUrl(map[string]any{}, "me/drive/sharedWithMe")
 	if t_err != nil {
 		return false
 	}
-	_, t_err = performGraphApiGet(access_token, &t_url, proxy)
-	return t_err == nil
+	t_status_code, _, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	return t_err == nil && t_status_code == 200
 }
 
 // GET /me/drive/following
 func getMeDriveFollowing(access_token, proxy *string) bool {
 	var t_url string
 	var t_err error
+	var t_status_code int
 	t_url, t_err = genGraphApiUrl(map[string]any{}, "me/drive/following")
 	if t_err != nil {
 		return false
 	}
-	_, t_err = performGraphApiGet(access_token, &t_url, proxy)
-	return t_err == nil
+	t_status_code, _, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	return t_err == nil && t_status_code == 200
 }
 
 // Worker to call getMeDrive
@@ -96,7 +101,7 @@ func GetMeDrive(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, 
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeFileList,
+		OpID:      OpTypeFileListFiles,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
@@ -130,7 +135,7 @@ func GetMeDriveRootChildren(out chan *ApiResult, proxy *string, ms_config *confi
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeFileList,
+		OpID:      OpTypeFileListFiles,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
@@ -164,7 +169,7 @@ func GetMeDriveRecent(out chan *ApiResult, proxy *string, ms_config *config.Conf
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeFileList,
+		OpID:      OpTypeFileListFiles,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
@@ -198,7 +203,7 @@ func GetMeDriveSharedWithMe(out chan *ApiResult, proxy *string, ms_config *confi
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeFileList,
+		OpID:      OpTypeFileListFiles,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
@@ -232,7 +237,7 @@ func GetMeDriveFollowing(out chan *ApiResult, proxy *string, ms_config *config.C
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeFileList,
+		OpID:      OpTypeFileListFiles,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,

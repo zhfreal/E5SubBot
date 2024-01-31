@@ -208,6 +208,43 @@ func PerformTasks() {
 					Args: args,
 				}
 			}
+			// calendar
+			if ConfigYamlObj.MS.Calendar.ListCalendars.Enabled {
+				wg_task.Add(3)
+				in <- &ms.Task{
+					Func: ms.ListCalendars,
+					Args: args,
+				}
+				in <- &ms.Task{
+					Func: ms.GetDefaultCalendar,
+					Args: args,
+				}
+				in <- &ms.Task{
+					Func: ms.GetCalendarView,
+					Args: args,
+				}
+			}
+			if ConfigYamlObj.MS.Calendar.ListEvents.Enabled {
+				wg_task.Add(1)
+				in <- &ms.Task{
+					Func: ms.ListEvents,
+					Args: args,
+				}
+			}
+			if ConfigYamlObj.MS.Calendar.ListReminders.Enabled {
+				wg_task.Add(1)
+				in <- &ms.Task{
+					Func: ms.ListReminder,
+					Args: args,
+				}
+			}
+			if ConfigYamlObj.MS.Calendar.GetSchedule.Enabled {
+				wg_task.Add(1)
+				in <- &ms.Task{
+					Func: ms.GetSchedule,
+					Args: args,
+				}
+			}
 		}(uc, mails_list[i])
 	}
 	// we need read the template as the content for sending emails

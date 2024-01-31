@@ -90,36 +90,40 @@ func Rand_Choice(choices []string) string {
 	return choices[myRand.Intn(len(choices))]
 }
 
-func performGraphApiGet(access_token, url_str, proxy *string) (string, error) {
+// return status_code, body, error
+func performGraphApiGet(access_token, url_str, proxy *string) (int, string, error) {
 	resp, err := performGraphApi(&OpGet, access_token, url_str, nil, proxy)
 	if err != nil {
-		return "", err
+		return -1, "", err
 	}
+	t_status_code := resp.StatusCode
 	t_b, t_err := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	if t_err != nil {
-		return "", fmt.Errorf("fail to fetch return content, failed with: %v", t_err.Error())
+		return t_status_code, "", fmt.Errorf("fail to fetch return content, failed with: %v", t_err.Error())
 	}
-	return string(t_b), nil
+	return t_status_code, string(t_b), nil
 }
 
-func performGraphApiPost(access_token, url_str, data, proxy *string) (string, error) {
+// return status_code, body, error
+func performGraphApiPost(access_token, url_str, data, proxy *string) (int, string, error) {
 	resp, err := performGraphApi(&OpPost, access_token, url_str, data, proxy)
 	if err != nil {
-		return "", err
+		return -1, "", err
 	}
 	if resp.StatusCode != 200 {
 		defer resp.Body.Close()
 		t_b, _ := io.ReadAll(resp.Body)
 		err = fmt.Errorf("%v, %v", resp.Status, string(t_b))
-		return string(t_b), err
+		return -1, string(t_b), err
 	}
+	t_status_code := resp.StatusCode
 	t_b, t_err := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	if t_err != nil {
-		return "", fmt.Errorf("fail to fetch return content, failed with: %v", t_err.Error())
+		return t_status_code, "", fmt.Errorf("fail to fetch return content, failed with: %v", t_err.Error())
 	}
-	return string(t_b), nil
+	return t_status_code, string(t_b), nil
 }
 
 func performGraphApiPatch(access_token, url_str, data, proxy *string) (bool, error) {

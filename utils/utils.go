@@ -236,8 +236,31 @@ func SplitStringByRegStr(s, reg_str string) []string {
 
 // shuffle slice
 func ShuffleSlice(s []*string) {
-	my_rand := rand.New(rand.NewSource(time.Now().UnixNano())) // seed the random generator
-	my_rand.Shuffle(len(s), func(i, j int) {
+	rand.Shuffle(len(s), func(i, j int) {
 		s[i], s[j] = s[j], s[i] // swap the elements
 	})
+}
+
+func GetTimeWithDelta(day, hour int, negative bool) time.Time {
+	t_day := day
+	t_hour := hour
+	if t_day <= 1 {
+		t_day = 1
+	}
+	if t_day >= 30 {
+		t_day = 30
+	}
+	if t_hour <= 1 {
+		t_hour = 1
+	}
+	if t_hour >= 24 {
+		t_hour = 24
+	}
+	t_rand_days := rand.Intn(day)
+	t_rand_hours := rand.Intn(hour)
+	if negative {
+		t_rand_days = -t_rand_days
+		t_rand_hours = -t_rand_hours
+	}
+	return time.Now().AddDate(0, 0, t_rand_days).Add(time.Duration(t_rand_hours) * time.Hour)
 }

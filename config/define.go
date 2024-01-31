@@ -126,8 +126,9 @@ type MySqlConfig struct {
 	TLS      string `yaml:"tls" default:"false"`
 }
 type ConfigMs struct {
-	Mail *ConfigMail `yaml:"mail"`
-	File *ConfigFile `yaml:"file"`
+	Mail     *ConfigMail     `yaml:"mail"`
+	File     *ConfigFile     `yaml:"file"`
+	Calendar *ConfigCalendar `yaml:"calendar"`
 }
 type ConfigMail struct {
 	AutoDeleteMails *ConfigAutoDeleteMails `yaml:"autodeletemails"`
@@ -176,6 +177,24 @@ type ConfigFile struct {
 	ListFiles *ListFiles `yaml:"listfiles"`
 }
 type ListFiles struct {
+	Enabled bool `yaml:"enabled" default:"true"`
+}
+type ConfigCalendar struct {
+	ListCalendars *ListCalendars `yaml:"listcalendars"`
+	ListEvents    *ListEvents    `yaml:"listevents"`
+	ListReminders *ListReminders `yaml:"listreminders"`
+	GetSchedule   *GetSchedule   `yaml:"getschedule"`
+}
+type ListCalendars struct {
+	Enabled bool `yaml:"enabled" default:"true"`
+}
+type ListEvents struct {
+	Enabled bool `yaml:"enabled" default:"true"`
+}
+type ListReminders struct {
+	Enabled bool `yaml:"enabled" default:"true"`
+}
+type GetSchedule struct {
 	Enabled bool `yaml:"enabled" default:"true"`
 }
 type ConfigLog struct {
