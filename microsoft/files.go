@@ -7,6 +7,24 @@ import (
 	"github.com/zhfreal/E5SubBot/config"
 )
 
+// GET /me/drives
+func listDrives(access_token, proxy *string) bool {
+	var t_url string
+	var t_err error
+	var t_status_code int
+	t_url, t_err = genGraphApiUrl(map[string]any{}, "me/drives")
+	if t_err != nil {
+		return false
+	}
+	var content string
+	t_status_code, content, t_err = performGraphApiGet(access_token, &t_url, proxy)
+	if t_err != nil || t_status_code != 200 {
+		return false
+	}
+	drive_num := gjson.Get(content, "value.#").Int()
+	return drive_num > 0
+}
+
 // GET /me/drive
 func getMeDrive(access_token, proxy *string) bool {
 	var t_url string
@@ -77,6 +95,40 @@ func getMeDriveFollowing(access_token, proxy *string) bool {
 	return t_err == nil && t_status_code == 200
 }
 
+// Worker to call listDrives
+func ListDrives(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+	t_start_at := time.Now()
+	var s, f int = 0, 0
+	var id uint
+	var access_token *string
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
+		ok := listDrives(access_token, proxy)
+		if ok {
+			s++
+		} else {
+			f++
+		}
+	}
+	t_end_at := time.Now()
+	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
+	out <- &ApiResult{
+		ID:        id,
+		OpID:      OpTypeFileListDrives,
+		S:         s,
+		F:         f,
+		StartTime: &t_start_at,
+		Duration:  t_durations_milliseconds,
+		EndTime:   &t_end_at,
+		Tasks:     []*Task{},
+	}
+}
+
 // Worker to call getMeDrive
 func GetMeDrive(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
 	t_start_at := time.Now()
@@ -89,7 +141,7 @@ func GetMeDrive(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, 
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok := getMeDrive(access_token, proxy)
 		if ok {
 			s++
@@ -101,7 +153,7 @@ func GetMeDrive(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, 
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeFileListFiles,
+		OpID:      OpTypeFileGetMeDrive,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
@@ -123,7 +175,7 @@ func GetMeDriveRootChildren(out chan *ApiResult, proxy *string, ms_config *confi
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok := getMeDriveRootChildren(access_token, proxy)
 		if ok {
 			s++
@@ -135,7 +187,7 @@ func GetMeDriveRootChildren(out chan *ApiResult, proxy *string, ms_config *confi
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeFileListFiles,
+		OpID:      OpTypeFileGetRootChildren,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
@@ -157,7 +209,7 @@ func GetMeDriveRecent(out chan *ApiResult, proxy *string, ms_config *config.Conf
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok := getMeDriveRecent(access_token, proxy)
 		if ok {
 			s++
@@ -169,7 +221,7 @@ func GetMeDriveRecent(out chan *ApiResult, proxy *string, ms_config *config.Conf
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeFileListFiles,
+		OpID:      OpTypeFileGetRecent,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
@@ -191,7 +243,7 @@ func GetMeDriveSharedWithMe(out chan *ApiResult, proxy *string, ms_config *confi
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok := getMeDriveSharedWithMe(access_token, proxy)
 		if ok {
 			s++
@@ -203,7 +255,7 @@ func GetMeDriveSharedWithMe(out chan *ApiResult, proxy *string, ms_config *confi
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeFileListFiles,
+		OpID:      OpTypeFileGetSharedWithMe,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
@@ -225,7 +277,7 @@ func GetMeDriveFollowing(out chan *ApiResult, proxy *string, ms_config *config.C
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok := getMeDriveFollowing(access_token, proxy)
 		if ok {
 			s++
@@ -237,7 +289,7 @@ func GetMeDriveFollowing(out chan *ApiResult, proxy *string, ms_config *config.C
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeFileListFiles,
+		OpID:      OpTypeFileGetFollowing,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,

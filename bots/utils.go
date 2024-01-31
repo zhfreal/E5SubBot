@@ -113,8 +113,11 @@ func GetAppsStats(s []*storage.StatsForShow, summarized bool) []*storage.AppsSta
 			if op_id >= microsoft.OpTypeMail && op_id < microsoft.OpTypeFile {
 				op_id = microsoft.OpTypeMail
 				op_alias = microsoft.Ops[op_id]
-			} else if op_id >= microsoft.OpTypeFile {
+			} else if op_id >= microsoft.OpTypeFile && op_id < microsoft.OpTypeCalendar {
 				op_id = microsoft.OpTypeFile
+				op_alias = microsoft.Ops[op_id]
+			} else if op_id >= microsoft.OpTypeCalendar && op_id < microsoft.OpTypeContact {
+				op_id = microsoft.OpTypeCalendar
 				op_alias = microsoft.Ops[op_id]
 			}
 		}

@@ -41,11 +41,30 @@ const (
 )
 
 const (
+	OpTypeFileListDrives = iota + 100 + 10
+	OpTypeFileGetMeDrive
+	OpTypeFileGetRootChildren
+	OpTypeFileGetRecent
+	OpTypeFileGetSharedWithMe
+	OpTypeFileGetFollowing
+)
+
+const (
 	OpTypeCalendar uint = iota + 200 + 1
 	OpTypeCalendarListCalendars
 	OpTypeCalendarListEvents
 	OpTypeCalendarListReminders
 	OpTypeCalendarGetSchedule
+	OpTypeCalendarGetMeCalendar
+	OpTypeCalendarGetCalendarView
+)
+
+const (
+	OpTypeContact uint = iota + 300 + 1
+)
+
+const (
+	OpTypeNote uint = iota + 400 + 1
 )
 
 var (
@@ -106,11 +125,19 @@ var (
 		OpTypeMailReadMarkMailAsRead:   "MailsMarkMailAsRead",
 		OpTypeFile:                     "Files",
 		OpTypeFileListFiles:            "FilesList",
+		OpTypeFileListDrives:           "FilesListDrives",
+		OpTypeFileGetMeDrive:           "FilesGetMeDrive",
+		OpTypeFileGetRootChildren:      "FilesGetRootChildren",
+		OpTypeFileGetRecent:            "FilesGetRecent",
+		OpTypeFileGetSharedWithMe:      "FilesGetSharedWithMe",
+		OpTypeFileGetFollowing:         "FilesGetFollowing",
 		OpTypeCalendar:                 "Calendars",
 		OpTypeCalendarListCalendars:    "CalendarsList",
 		OpTypeCalendarListEvents:       "CalendarsListEvents",
 		OpTypeCalendarListReminders:    "CalendarsListReminders",
 		OpTypeCalendarGetSchedule:      "CalendarsGetSchedule",
+		OpTypeCalendarGetMeCalendar:    "CalendarsGetMeCalendar",
+		OpTypeCalendarGetCalendarView:  "CalendarsGetCalendarView",
 	}
 	MailContentHtml     string = "html"
 	MailBoxFolderInBox  string = "Inbox"

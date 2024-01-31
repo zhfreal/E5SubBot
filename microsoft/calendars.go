@@ -25,7 +25,7 @@ func listCalendars(access_token, proxy *string) bool {
 }
 
 // GET /me/calendar
-func getDefaultCalendar(access_token, proxy *string) bool {
+func getMeCalendar(access_token, proxy *string) bool {
 	var t_url string
 	var t_err error
 	var t_status_code int
@@ -129,7 +129,7 @@ func ListCalendars(out chan *ApiResult, proxy *string, ms_config *config.ConfigM
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok := listCalendars(access_token, proxy)
 		if ok {
 			s++
@@ -151,8 +151,8 @@ func ListCalendars(out chan *ApiResult, proxy *string, ms_config *config.ConfigM
 	}
 }
 
-// Worker to call getDefaultCalendar
-func GetDefaultCalendar(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
+// Worker to call getMeCalendar
+func GetMeCalendar(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
 	t_start_at := time.Now()
 	var s, f int = 0, 0
 	var id uint
@@ -163,8 +163,8 @@ func GetDefaultCalendar(out chan *ApiResult, proxy *string, ms_config *config.Co
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
-		ok := getDefaultCalendar(access_token, proxy)
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
+		ok := getMeCalendar(access_token, proxy)
 		if ok {
 			s++
 		} else {
@@ -175,7 +175,7 @@ func GetDefaultCalendar(out chan *ApiResult, proxy *string, ms_config *config.Co
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeCalendarListCalendars,
+		OpID:      OpTypeCalendarGetMeCalendar,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
@@ -197,7 +197,7 @@ func GetCalendarView(out chan *ApiResult, proxy *string, ms_config *config.Confi
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok := getCalendarView(access_token, proxy)
 		if ok {
 			s++
@@ -209,7 +209,7 @@ func GetCalendarView(out chan *ApiResult, proxy *string, ms_config *config.Confi
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
 		ID:        id,
-		OpID:      OpTypeCalendarListCalendars,
+		OpID:      OpTypeCalendarGetCalendarView,
 		S:         s,
 		F:         f,
 		StartTime: &t_start_at,
@@ -231,7 +231,7 @@ func ListEvents(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, 
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok := listEvents(access_token, proxy)
 		if ok {
 			s++
@@ -265,7 +265,7 @@ func ListReminder(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs
 	if args[ArgAccessToken] != nil {
 		access_token = args[ArgAccessToken].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok := listReminder(access_token, proxy)
 		if ok {
 			s++
@@ -302,7 +302,7 @@ func GetSchedule(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs,
 	if args[ArgMailAddr] != nil {
 		mail = args[ArgMailAddr].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 && len(*mail) > 0 {
+	if id > 0 && access_token != nil && mail != nil && len(*access_token) > 0 && len(*mail) > 0 {
 		ok := getSchedule(access_token, proxy, mail)
 		if ok {
 			s++

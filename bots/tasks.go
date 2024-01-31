@@ -70,9 +70,9 @@ func PerformTasks() {
 	var done chan bool
 	// tasks_count := 0
 	// init all chan
-	thread_count := utils.MinInt(t_len_users_config*3, ConfigYamlObj.Goroutine)
+	thread_count := utils.MinInt(int(t_len_users_config*len(ms.Ops)/2), ConfigYamlObj.Goroutine)
 	// make more rooms for chan, consider we split the tasks into smaller tasks.
-	chan_num := t_len_users_config * 10
+	chan_num := thread_count * 10
 	in = make(chan *ms.Task, chan_num)
 	out = make(chan *ms.ApiResult, chan_num)
 	done = make(chan bool, thread_count)
@@ -140,10 +140,14 @@ func PerformTasks() {
 			}
 			// list mail folders
 			if ConfigYamlObj.MS.Mail.ReadMailFolders.Enabled {
-				wg_task.Add(1)
+				wg_task.Add(2)
 				args[ms.ArgReadAttachments] = ConfigYamlObj.MS.Mail.ReadMailFolders.ReadAttachments
 				in <- &ms.Task{
 					Func: ms.MailListMailFolders,
+					Args: args,
+				}
+				in <- &ms.Task{
+					Func: ms.MailReadMailFoldersDelta,
 					Args: args,
 				}
 			}
@@ -186,7 +190,11 @@ func PerformTasks() {
 			}
 			// list files
 			if ConfigYamlObj.MS.File.ListFiles.Enabled {
-				wg_task.Add(5)
+				wg_task.Add(6)
+				in <- &ms.Task{
+					Func: ms.ListDrives,
+					Args: args,
+				}
 				in <- &ms.Task{
 					Func: ms.GetMeDrive,
 					Args: args,
@@ -216,7 +224,7 @@ func PerformTasks() {
 					Args: args,
 				}
 				in <- &ms.Task{
-					Func: ms.GetDefaultCalendar,
+					Func: ms.GetMeCalendar,
 					Args: args,
 				}
 				in <- &ms.Task{
@@ -240,6 +248,7 @@ func PerformTasks() {
 			}
 			if ConfigYamlObj.MS.Calendar.GetSchedule.Enabled {
 				wg_task.Add(1)
+				args[ms.ArgMailAddr] = &uc.MsUsername
 				in <- &ms.Task{
 					Func: ms.GetSchedule,
 					Args: args,

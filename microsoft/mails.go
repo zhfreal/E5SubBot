@@ -741,7 +741,6 @@ func searchMailsByKeywords(access_token *string, keywords []*string, fetch_quant
 	var fetched int
 	t_from := 0
 	var t_list [][3]interface{}
-
 	for {
 		content, err := searchEmailByKeywords(access_token, keywords, t_from, fetch_quantity, proxy)
 		// bad request, or network issue or other error, rather than empty search result
@@ -749,11 +748,11 @@ func searchMailsByKeywords(access_token *string, keywords []*string, fetch_quant
 			f += 1
 			break
 		}
+		s++
 		// get search results in path "content.value[0].hitsContainers[0]" use gjson
 		t_search_content := gjson.Get(content, "value.0.hitsContainers.0").String()
 		// no matched results, return as one successful try
 		if t_search_content == "" {
-			s += 1
 			break
 		}
 		t_hits_string := gjson.Get(t_search_content, "hits").String()
@@ -761,14 +760,12 @@ func searchMailsByKeywords(access_token *string, keywords []*string, fetch_quant
 		t_more_results_available := gjson.Get(t_search_content, "moreResultsAvailable").Bool()
 		// empty search results, return as one successful try
 		if len(t_hits_string) == 0 {
-			s += 1
 			break
 		}
 		t_msg_id_list := gjson.Get(t_hits_string, "#.hitId").Array()
 		t_is_read_list := gjson.Get(t_hits_string, "#.resource.isRead").Array()
 		t_folder_id_list := gjson.Get(t_hits_string, "#.resource.parentFolderId").Array()
 		if len(t_msg_id_list) == 0 || len(t_folder_id_list) == 0 || len(t_is_read_list) == 0 {
-			s += 1
 			break
 		}
 		for i := 0; i < len(t_msg_id_list); i++ {
@@ -802,13 +799,13 @@ func getMailsDelta(access_token, folder_id, proxy *string) (int, int) {
 
 // get mails folder delta
 // TODO: read messages from delta
-func getMailFoldersDelta(access_token, proxy *string) (int, int) {
+func getMailFoldersDelta(access_token, proxy *string) bool {
 	t_url, _ := genGraphApiUrl(map[string]any{}, "/me/mailFolders", "delta")
 	t_status_code, _, err := performGraphApiGet(access_token, &t_url, proxy)
 	if err != nil || t_status_code != 200 {
-		return 0, 1
+		return false
 	}
-	return 1, 0
+	return true
 }
 
 // send email
@@ -839,7 +836,7 @@ func MailListMailsFrom(out chan *ApiResult, proxy *string, ms_config *config.Con
 	if _, ok := args[ArgReadAttachments]; ok {
 		read_attachments = args[ArgReadAttachments].(bool)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		t_list, s, f, _ = getMailsFromFolder(access_token, folder_id, ms_config.Mail.ReadMails.Quantity, proxy, true, ms_config.Mail.ReadMails.ReadUnread, nil)
 	}
 
@@ -905,7 +902,7 @@ func MailReadMail(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs
 	if _, ok := args[ArgReadAttachments]; ok {
 		read_attachments = args[ArgReadAttachments].(bool)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		t_result, ok, _ = readOneMail(access_token, folder_id, mail_id, proxy)
 		if ok {
 			s += 1
@@ -976,7 +973,7 @@ func MailReadListMailsAttachments(out chan *ApiResult, proxy *string, ms_config 
 	if args[ArgMailId] != nil {
 		mail_id = args[ArgMailId].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		t_result, ok, _ = listMailsAttachments(access_token, folder_id, mail_id, proxy)
 		if ok {
 			s += 1
@@ -1033,7 +1030,7 @@ func MailReadDownloadAttachment(out chan *ApiResult, proxy *string, ms_config *c
 	if args[ArgAttachmentId] != nil {
 		attachment_id = args[ArgAttachmentId].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 && len(*attachment_id) > 0 {
+	if id > 0 && access_token != nil && attachment_id != nil && len(*access_token) > 0 && len(*attachment_id) > 0 {
 		ok, _ = downloadMailsAttachment(access_token, folder_id, mail_id, attachment_id, proxy)
 		if ok {
 			s += 1
@@ -1075,7 +1072,7 @@ func MailReadMarkMailAsRead(out chan *ApiResult, proxy *string, ms_config *confi
 	if args[ArgMailId] != nil {
 		mail_id = args[ArgMailId].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok, _ = readMailMarkAsRead(access_token, folder_id, mail_id, proxy)
 		if ok {
 			s += 1
@@ -1119,7 +1116,7 @@ func MailListMailFolders(out chan *ApiResult, proxy *string, ms_config *config.C
 	if _, ok := args[ArgReadAttachments]; ok {
 		read_attachments = args[ArgReadAttachments].(bool)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		t_list, s, f, _ = getAllMailFoldersNew(folder_id, access_token, proxy)
 	}
 	t_end_at := time.Now()
@@ -1177,12 +1174,25 @@ func MailListMailFolders(out chan *ApiResult, proxy *string, ms_config *config.C
 }
 
 // read folder's delta
-func MailReadMailFoldersDelta(id uint, access_token *string, out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
-	var s, f int = 0, 0
+func MailReadMailFoldersDelta(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, args MsArgs) {
 	t_start_at := time.Now()
-	t_s, t_f := getMailFoldersDelta(access_token, proxy)
-	s += t_s
-	f += t_f
+	var s, f int = 0, 0
+	var id uint
+	var access_token *string
+	if args[ArgUserID] != nil {
+		id = args[ArgUserID].(uint)
+	}
+	if args[ArgAccessToken] != nil {
+		access_token = args[ArgAccessToken].(*string)
+	}
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
+		ok := getMailFoldersDelta(access_token, proxy)
+		if ok {
+			s++
+		} else {
+			f++
+		}
+	}
 	t_end_at := time.Now()
 	t_durations_milliseconds := t_end_at.Sub(t_start_at).Milliseconds()
 	out <- &ApiResult{
@@ -1213,7 +1223,7 @@ func MailReadMailsDelta(out chan *ApiResult, proxy *string, ms_config *config.Co
 	if args[ArgFolderId] != nil {
 		folder_id = args[ArgFolderId].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		s, f = getMailsDelta(access_token, folder_id, proxy)
 	}
 	t_end_at := time.Now()
@@ -1251,7 +1261,7 @@ func MailListMailsFromFolder(out chan *ApiResult, proxy *string, ms_config *conf
 	if _, ok := args[ArgReadAttachments]; ok {
 		read_attachments = args[ArgReadAttachments].(bool)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		t_list, s, f, _ = getMailsFromFolder(access_token,
 			folder_id,
 			ms_config.Mail.ReadMailFolders.Quantity,
@@ -1313,7 +1323,7 @@ func MailsSearch(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs,
 		read_attachments = args[ArgReadAttachments].(bool)
 	}
 	// do search only if keyword is not empty
-	if len(ms_config.Mail.SearchMails.Keywords) > 0 && id > 0 && len(*access_token) > 0 {
+	if len(ms_config.Mail.SearchMails.Keywords) > 0 && id > 0 && access_token != nil && len(*access_token) > 0 {
 		var t_keyword_slice []*string
 		for i := range ms_config.Mail.SearchMails.Keywords {
 			t_keyword_slice = append(t_keyword_slice, &ms_config.Mail.SearchMails.Keywords[i])
@@ -1375,7 +1385,7 @@ func MailsDelListSpecificMailFolders(out chan *ApiResult, proxy *string, ms_conf
 		read_attachments = args[ArgReadAttachments].(bool)
 	}
 	// get all folders, get the folder_id of "Inbox", "Sent Items", "Drafts"
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		var folder_list []*string
 		for _, folder_name := range ms_config.Mail.AutoDeleteMails.FolderName {
 			folder_list = append(folder_list, &folder_name)
@@ -1447,7 +1457,7 @@ func MailsDelListFilteredMails(out chan *ApiResult, proxy *string, ms_config *co
 	if args[ArgFolderId] != nil {
 		t_folder_id = args[ArgFolderId].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		var t_keyword_slice []*string
 		for i := range ms_config.Mail.AutoDeleteMails.Keywords {
 			t_keyword_slice = append(t_keyword_slice, &ms_config.Mail.AutoDeleteMails.Keywords[i])
@@ -1526,7 +1536,7 @@ func MailsDelDeleteOneMail(out chan *ApiResult, proxy *string, ms_config *config
 		t_msg_id = args[ArgMailId].(*string)
 	}
 	// delete one mail, return true if success, false if failure.
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok, _ := deleteOneEmail(access_token, t_folder_id, t_msg_id, proxy)
 		if ok {
 			s += 1
@@ -1564,7 +1574,7 @@ func MailsSend(out chan *ApiResult, proxy *string, ms_config *config.ConfigMs, a
 	if args[ArgTo] != nil {
 		to = args[ArgTo].(*string)
 	}
-	if id > 0 && len(*access_token) > 0 {
+	if id > 0 && access_token != nil && len(*access_token) > 0 {
 		ok, _ := sendEmail(access_token, proxy, &ms_config.Mail.AutoSendMails.Subject, &ms_config.Mail.AutoSendMails.TemplateContent, to)
 		if ok {
 			s += 1
