@@ -776,6 +776,7 @@ func UpdateStatsByStatsNew(stats []*Stats) error {
 		// add new stats
 		if _, ok := t_stats_map[t_key]; ok {
 			t_v := t_stats_map[t_key]
+			t_v.ID = c_os.ID
 			t_v.Success += c_os.Success
 			t_v.Failure += c_os.Failure
 			// c_os.LastTime = t_v.LastTime
