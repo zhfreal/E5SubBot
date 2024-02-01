@@ -12,6 +12,7 @@ cronconf:
   task: "*/5 * * * *"
   notice: "*/30 * * * *"
 workspace: "/var/lib/e5bot/"
+tz: "America/Los_Angeles"
 db: 
   dbtype: sqlite
   # mysql:
@@ -28,10 +29,7 @@ ms:
       enabled: true
       keyword: ""
       keywords:
-       - "As promised in the last email"
-       - "George Best quote"
-       - "Delivery has failed to these recipients or groups"
-       - "ieSoft Best quote"
+       - "xxxxxxxxxxxxxxx"
       foldername:
        - "Inbox"
        - "Sent Items"
@@ -52,10 +50,7 @@ ms:
       enabled: true
       keyword: ""
       keywords:
-       - "As promised in the last email"
-       - "George Best quote"
-       - "Delivery has failed to these recipients or groups"
-       - "ieSoft Best quote"
+       - "xxxxxxxxx"
       quantity: 20
       readunread: true
       readattachments: false
@@ -65,10 +60,19 @@ ms:
       template: "email.html"
       templatecontent: ""
       tamplatetype: "html"
-      subject: "ieSoft Best quote"
+      subject: "xxxxxxxxxxxxxxx"
   file:
     listfiles:
-      enable: True
+      enabled: true
+  calendar:
+    listcalendars:
+      enabled: true
+    listevents:
+      enabled: true
+    listreminders:
+      enabled: true
+    getschedule:
+      enabled: true
 log:
     logintofile: true
     logfile: "log/latest.log"
