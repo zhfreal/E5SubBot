@@ -94,8 +94,10 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		helpHandler(ctx, b, update)
 		return
 	}
-	// get the previous message stored in BindCachedObj, check it expired or not
-	// if it's expired, clean it and send msg to user
+	// get the previous message stored in BindCachedObj,
+	//   if we don't cached, send message and return;
+	//   if we cached, then check it expired or not
+	//      if it's expired, clean it and send msg to user
 	if this_msg_type == ReplyFromCallBack || this_msg_type == ReplyWithPureMsg {
 		t_key = &MsgKey{MsgID: msg_id, ChatID: chat_id}
 		// don't handle non-cached msg
@@ -108,23 +110,24 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 				Text:   "This message has expired, please start over again.",
 			})
 			return
-		}
-		t_value = BindCachedObj.Get(t_key)
-		// don't handle expired msg
-		if t_value.IsExpired() {
-			// send msg to user
-			b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: chat_id,
-				Text:   "This message has expired, please start over again.",
-			})
-			// clean
-			if t_value.MsgType == ReplyForWaitingAuth {
-				// authentication go routing will clean itself, just do ctx cancel
-				AuthCachedObj.Cancel(t_key.ChatID)
-			} else {
-				CleanTGMsgAndBindCached(ctx, b, t_key)
+		} else {
+			t_value = BindCachedObj.Get(t_key)
+			// don't handle expired msg
+			if t_value.IsExpired() {
+				// send msg to user
+				b.SendMessage(ctx, &bot.SendMessageParams{
+					ChatID: chat_id,
+					Text:   "This message has expired, please start over again.",
+				})
+				// clean
+				if t_value.MsgType == ReplyForWaitingAuth {
+					// authentication go routing will clean itself, just do ctx cancel
+					AuthCachedObj.Cancel(t_key.ChatID)
+				} else {
+					CleanTGMsgAndBindCached(ctx, b, t_key)
+				}
+				return
 			}
-			return
 		}
 	}
 
@@ -134,13 +137,8 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		if t_value.MsgType == ReplyForBindAPP {
 			handleAPPBound(ctx, b, t_key, received_msg)
 		} else {
-			// b.SendMessage(ctx, &bot.SendMessageParams{
-			// 	ChatID: chat_id,
-			// 	Text:   "Unsupported reply message.",
-			// })
 			// print help
 			helpHandler(ctx, b, update)
-			return
 		}
 	} else if this_msg_type == ReplyFromCallBack {
 		if t_value.MsgType == ReplyForBindAccount {
@@ -183,56 +181,59 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		// empty message, print help
 		if len(t_list) == 0 {
 			helpHandler(ctx, b, update)
-		} else if len(t_list) == 1 {
-			// just single cmd without any parameters
+		} else {
 			t_cmd := t_list[0]
-			switch t_cmd {
-			case CMDBindApp:
-				bindAppHandler(ctx, b, update)
-			case CMDDelApp:
-				delAppHandler(ctx, b, update)
-			case CMDBind:
-				bindAccountHandler(ctx, b, update)
-			case CMDUnbind:
-				unBindAccountHandler(ctx, b, update)
-			case CMDReAuth:
-				reAuthAccountHandler(ctx, b, update)
-			case CMDUnbindOther:
-				unBindAccountHandlerOther(ctx, b, update)
-			case CMDListApps:
-				showAPPsHandler(ctx, b, update)
-			case CMDListUsers:
-				showBoundUsersHandler(ctx, b, update)
-			case CMDStat:
-				statHandler(ctx, b, update)
-			case CMDStatAll:
-				statAllHandler(ctx, b, update)
-			default:
-				// print help
-				helpHandler(ctx, b, update)
-			}
-		} else if len(t_list) > 1 {
-			// cmd with parameters
-			t_cmd := t_list[0]
-			switch t_cmd {
-			case CMDBindApp:
-				bindAppHandlerFromCMD(ctx, b, chat_id, t_list)
-			case CMDDelApp:
-				delAppByFromCMD(ctx, b, chat_id, t_list)
-			case CMDBind:
-				bindAccountFromCMD(ctx, b, chat_id, t_list)
-			case CMDUnbind:
-				unbindUserFromCMD(ctx, b, chat_id, t_list)
-			case CMDReAuth:
-				reAuthUserByAppAliasUserAliasFromCMD(ctx, b, chat_id, t_list)
-			case CMDUnbindOther:
-				unbindUserOtherFromCMD(ctx, b, chat_id, t_list)
-			default:
-				// print help
-				helpHandler(ctx, b, update)
+			t_cmd_bytes := []byte(t_cmd)
+			if len(t_list) == 1 {
+				// just single cmd without any parameters
+				// using regexp to match command
+				if CMDBindAppReg.Match(t_cmd_bytes) {
+					bindAppHandler(ctx, b, update)
+				} else if CMDDelAppReg.Match(t_cmd_bytes) {
+					delAppHandler(ctx, b, update)
+				} else if CMDBindReg.Match(t_cmd_bytes) {
+					bindAccountHandler(ctx, b, update)
+				} else if CMDUnbindReg.Match(t_cmd_bytes) {
+					unBindAccountHandler(ctx, b, update)
+				} else if CMDReAuthReg.Match(t_cmd_bytes) {
+					reAuthAccountHandler(ctx, b, update)
+				} else if CMDUnbindOtherReg.Match(t_cmd_bytes) {
+					unBindAccountHandlerOther(ctx, b, update)
+				} else if CMDListAppsReg.Match(t_cmd_bytes) {
+					showAPPsHandler(ctx, b, update)
+				} else if CMDListUsersReg.Match(t_cmd_bytes) {
+					showBoundUsersHandler(ctx, b, update)
+				} else if CMDStatReg.Match(t_cmd_bytes) {
+					statHandler(ctx, b, update)
+				} else if CMDStatAllReg.Match(t_cmd_bytes) {
+					statAllHandler(ctx, b, update)
+				} else if CMDHelpReg.Match(t_cmd_bytes) {
+					// print help
+					helpHandler(ctx, b, update)
+				} else {
+					// print help
+					helpHandler(ctx, b, update)
+				}
+			} else if len(t_list) > 1 {
+				// cmd with parameters
+				if CMDBindAppReg.Match(t_cmd_bytes) {
+					bindAppHandlerFromCMD(ctx, b, chat_id, t_list)
+				} else if CMDDelAppReg.Match(t_cmd_bytes) {
+					delAppByFromCMD(ctx, b, chat_id, t_list)
+				} else if CMDBindReg.Match(t_cmd_bytes) {
+					bindAccountFromCMD(ctx, b, chat_id, t_list)
+				} else if CMDUnbindReg.Match(t_cmd_bytes) {
+					unbindUserFromCMD(ctx, b, chat_id, t_list)
+				} else if CMDReAuthReg.Match(t_cmd_bytes) {
+					reAuthUserByAppAliasUserAliasFromCMD(ctx, b, chat_id, t_list)
+				} else if CMDUnbindOtherReg.Match(t_cmd_bytes) {
+					unbindUserOtherFromCMD(ctx, b, chat_id, t_list)
+				} else {
+					// print help
+					helpHandler(ctx, b, update)
+				}
 			}
 		}
-
 	} else {
 		// print help
 		helpHandler(ctx, b, update)

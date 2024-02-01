@@ -3,6 +3,7 @@ package bots
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,6 +37,20 @@ const (
 	CMDDelApp                string        = "/delApp"
 	MaxStatsRecordCached     int           = 50
 	MaxOpDetailsRecordCached int           = 50
+)
+
+var (
+	CMDHelpReg        = regexp.MustCompile(`(?i)^\s*/help(\s+|$)`)
+	CMDBindAppReg     = regexp.MustCompile(`(?i)^\s*/bindApp(\s+|$)`)
+	CMDBindReg        = regexp.MustCompile(`(?i)^\s*/bind(\s+|$)`)
+	CMDUnbindReg      = regexp.MustCompile(`(?i)^\s*/unbind(\s+|$)`)
+	CMDListAppsReg    = regexp.MustCompile(`(?i)^\s*/listApps(\s+|$)`)
+	CMDListUsersReg   = regexp.MustCompile(`(?i)^\s*/listUsers(\s+|$)`)
+	CMDStatReg        = regexp.MustCompile(`(?i)^\s*/stats*(\s+|$)`)
+	CMDReAuthReg      = regexp.MustCompile(`(?i)^\s*/reAuth(\s+|$)`)
+	CMDUnbindOtherReg = regexp.MustCompile(`(?i)^\s*/unbindOther(\s+|$)`)
+	CMDStatAllReg     = regexp.MustCompile(`(?i)^\s*/statAll(\s+|$)`)
+	CMDDelAppReg      = regexp.MustCompile(`(?i)^\s*/delApp(\s+|$)`)
 )
 
 const (

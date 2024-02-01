@@ -16,6 +16,7 @@ func Start(config_file string) {
 	var err error
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
+	// we do all binding in replyHandler
 	opts := []bot.Option{
 		bot.WithDefaultHandler(replyHandler),
 	}
@@ -35,37 +36,15 @@ func Start(config_file string) {
 		fmt.Println("failed to create bot", "error", err.Error())
 		os.Exit(1)
 	}
-	// register handlers
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDHelp, bot.MatchTypeExact, helpHandler)
-	// for admin, we match "/bindApp <client_id> <app_alias>" in replyHandler
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDBindApp, bot.MatchTypeExact, bindAppHandler)
-	// for all, we match "/bind <app_alias>" in replyHandler
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDBind, bot.MatchTypeExact, bindAccountHandler)
-	// for all, we match "/reAuth <app_alias> <user_alias>" in replyHandler
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDReAuth, bot.MatchTypeExact, reAuthAccountHandler)
-	// for all, we match "/unbind <app_alias> <user_alias>" in replyHandler
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDBind, bot.MatchTypeExact, unBindAccountHandler)
-	// for admin, we match "/unbindOther <app_alias> <user_alias>" in replyHandler
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDUnbindOther, bot.MatchTypeExact, unBindAccountHandlerOther)
-	// for admin, we match "/delApp <app_alias>" in replyHandler
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDDelApp, bot.MatchTypeExact, delAppHandler)
-	// for all
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDListApps, bot.MatchTypeExact, showAPPsHandler)
-	// for all
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDListUsers, bot.MatchTypeExact, showBoundUsersHandler)
-	// for all
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDStat, bot.MatchTypeExact, statHandler)
-	// for admin
-	botTelegram.RegisterHandler(bot.HandlerTypeMessageText, CMDStatAll, bot.MatchTypeExact, statAllHandler)
-
-	// to void potential error, we need run botTelegram.Start() in goroutine
+	// bot.Start() will block the current running thread,
+	// so we need run botTelegram.Start() in goroutine, and do other things
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		botTelegram.Start(ctx)
 		wg.Done()
 	}()
-	// init background task
+	// init background task, th
 	// this must be init cronjob after bot start
 	init_background_tasks(ConfigYamlObj.CronConf)
 	// debug only
