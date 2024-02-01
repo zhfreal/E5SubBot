@@ -888,5 +888,11 @@ func GetAllTaskRecords() ([]*TaskRecords, error) {
 	return ts, err
 }
 
+func GetTaskRecordsLatestN(n int) ([]*TaskRecords, error) {
+	ts := make([]*TaskRecords, 0)
+	err := DB.Table(Table_TaskRecords).Order("created_at desc").Limit(n).Find(&ts).Error
+	return ts, err
+}
+
 // ////////////////////////////////////////////////////////////////////////
 // ////////////////////////////////////////////////////////////////////////

@@ -15,28 +15,30 @@ import (
 )
 
 const (
-	ActionBindLegacy         string        = "BL"
-	ActionBindDeviceCode     string        = "DC"
-	ActionYes                string        = "YES"
-	ActionNo                 string        = "NO"
-	ActionCancel             string        = "CANCEL"
-	ActionBindAccount        string        = "BA"
-	BindCacheTimeInSeconds   int           = 30 * 60
-	RefreshTokenBefore       int           = 60 * 5                // time in seconds, we refresh token in this second before it actually expire
-	BotSendMsgInterval       time.Duration = 50 * time.Millisecond // time.Duration in 50 milliseconds between two msgs from bot
-	CMDHelp                  string        = "/help"
-	CMDBindApp               string        = "/bindApp"
-	CMDBind                  string        = "/bind"
-	CMDUnbind                string        = "/unbind"
-	CMDListApps              string        = "/listApps"
-	CMDListUsers             string        = "/listUsers"
-	CMDStat                  string        = "/stat"
-	CMDReAuth                string        = "/reAuth"
-	CMDUnbindOther           string        = "/unbindOther"
-	CMDStatAll               string        = "/statAll"
-	CMDDelApp                string        = "/delApp"
-	MaxStatsRecordCached     int           = 50
-	MaxOpDetailsRecordCached int           = 50
+	ActionBindLegacy             string        = "BL"
+	ActionBindDeviceCode         string        = "DC"
+	ActionYes                    string        = "YES"
+	ActionNo                     string        = "NO"
+	ActionCancel                 string        = "CANCEL"
+	ActionBindAccount            string        = "BA"
+	BindCacheTimeInSeconds       int           = 30 * 60
+	RefreshTokenBefore           int           = 60 * 5                // time in seconds, we refresh token in this second before it actually expire
+	BotSendMsgInterval           time.Duration = 50 * time.Millisecond // time.Duration in 50 milliseconds between two msgs from bot
+	CMDHelp                      string        = "/help"
+	CMDBindApp                   string        = "/bindApp"
+	CMDBind                      string        = "/bind"
+	CMDUnbind                    string        = "/unbind"
+	CMDListApps                  string        = "/listApps"
+	CMDListUsers                 string        = "/listUsers"
+	CMDStat                      string        = "/stat"
+	CMDReAuth                    string        = "/reAuth"
+	CMDUnbindOther               string        = "/unbindOther"
+	CMDStatAll                   string        = "/statAll"
+	CMDDelApp                    string        = "/delApp"
+	CMDStatTask                  string        = "/statTask"
+	MaxStatsRecordCached         int           = 50
+	MaxOpDetailsRecordCached     int           = 50
+	DefaultQuantityOfTaskRecords int           = 10
 )
 
 var (
@@ -51,6 +53,7 @@ var (
 	CMDUnbindOtherReg = regexp.MustCompile(`(?i)^\s*/unbindOther(\s+|$)`)
 	CMDStatAllReg     = regexp.MustCompile(`(?i)^\s*/statAll(\s+|$)`)
 	CMDDelAppReg      = regexp.MustCompile(`(?i)^\s*/delApp(\s+|$)`)
+	CMDStatTaskReg    = regexp.MustCompile(`(?i)^\s*/statTask(\s+|$)`)
 )
 
 const (
@@ -73,23 +76,24 @@ var (
 	WelcomeContent    string = "欢迎使用E5SubBot!"
 	HelpContentHeader string = `
     命令：
-    /bind        绑定帐号
-    /unbind      解绑账户
-    /reAuth      重新授权已绑定账户
-    /stat        查看统计信息
-    /listApps    查看已绑定应用
-    /listUsers   查看已绑定用户
+    /bind [<app_alias>]                      绑定帐号
+    /unbind [<app_alias> <user_alias>]       解绑账户
+    /reAuth [<app_alias> <user_alias>]       重新授权已绑定账户
+    /stat(s)                                 查看统计信息
+    /listApps                                查看已绑定应用
+    /listUsers                               查看已绑定用户
 `
 	HelpContentTail string = `
-    /help        帮助
+    /help                                    帮助
     源码及使用方法: https://github.com/zhfreal/E5SubBot
 `
 	HelpContent      string = HelpContentHeader + HelpContentTail
 	HelpContentAdmin string = HelpContentHeader + `
-    /bindApp     绑定应用(管理员)
-    /delApp      删除应用(管理员)
-    /unbindOther 解给其他用户(管理员)
-    /statAll     统计所有用户(管理员)
+    /bindApp [<app_client_id> <app_alias>]   绑定应用(管理员)
+    /delApp [app_alias]                      删除应用(管理员)
+    /unbindOther [<app_alias> <user_alias>]  解给其他用户(管理员)
+    /statAll                                 统计所有用户(管理员)
+    /statTask [latest_N]                     统计最近运行的任务(管理员)
     ` + HelpContentTail
 )
 

@@ -264,3 +264,32 @@ func GetTimeWithDelta(day, hour int, negative bool) time.Time {
 	}
 	return time.Now().AddDate(0, 0, t_rand_days).Add(time.Duration(t_rand_hours) * time.Hour)
 }
+
+func getLocalTime(t time.Time, loc string) time.Time {
+	t_loc, err := time.LoadLocation(loc)
+	if err != nil {
+		return t.Local()
+	} else {
+		return t.In(t_loc)
+	}
+}
+
+func GetLocalTimeNow(loc string) time.Time {
+	t_time := time.Now()
+	return getLocalTime(t_time, loc)
+}
+
+func GetLocalTimeNowString(loc string) string {
+	t_time := time.Now()
+	return getLocalTime(t_time, loc).Format("2006-01-02 15:04:05 MST")
+}
+
+func GetLocalTimeAt(sec int64, nsec int64, loc string) time.Time {
+	t_time := time.Unix(sec, nsec)
+	return getLocalTime(t_time, loc)
+}
+
+func GetLocalTimeStringAt(sec int64, nsec int64, loc string) string {
+	t_time := time.Unix(sec, nsec)
+	return getLocalTime(t_time, loc).Format("2006-01-02 15:04:05 MST")
+}

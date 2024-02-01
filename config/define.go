@@ -99,6 +99,7 @@ type ConfigYaml struct {
 	Notice    string      `yaml:"notice" default:"welcome!"`
 	CronConf  *ConfigCron `yaml:"cronconf"`
 	Workspace string      `yaml:"workspace" default:"./"`
+	TZ        string      `yaml:"tz" default:"Asia/Shanghai"`
 	DB        *ConfigDb   `yaml:"db"`
 	MS        *ConfigMs   `yaml:"ms"`
 	Log       *ConfigLog  `yaml:"log"`

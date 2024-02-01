@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -184,54 +185,40 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		} else {
 			t_cmd := t_list[0]
 			t_cmd_bytes := []byte(t_cmd)
-			if len(t_list) == 1 {
-				// just single cmd without any parameters
-				// using regexp to match command
-				if CMDBindAppReg.Match(t_cmd_bytes) {
-					bindAppHandler(ctx, b, update)
-				} else if CMDDelAppReg.Match(t_cmd_bytes) {
-					delAppHandler(ctx, b, update)
-				} else if CMDBindReg.Match(t_cmd_bytes) {
-					bindAccountHandler(ctx, b, update)
-				} else if CMDUnbindReg.Match(t_cmd_bytes) {
-					unBindAccountHandler(ctx, b, update)
-				} else if CMDReAuthReg.Match(t_cmd_bytes) {
-					reAuthAccountHandler(ctx, b, update)
-				} else if CMDUnbindOtherReg.Match(t_cmd_bytes) {
-					unBindAccountHandlerOther(ctx, b, update)
-				} else if CMDListAppsReg.Match(t_cmd_bytes) {
-					showAPPsHandler(ctx, b, update)
-				} else if CMDListUsersReg.Match(t_cmd_bytes) {
-					showBoundUsersHandler(ctx, b, update)
-				} else if CMDStatReg.Match(t_cmd_bytes) {
-					statHandler(ctx, b, update)
-				} else if CMDStatAllReg.Match(t_cmd_bytes) {
-					statAllHandler(ctx, b, update)
-				} else if CMDHelpReg.Match(t_cmd_bytes) {
-					// print help
-					helpHandler(ctx, b, update)
-				} else {
-					// print help
-					helpHandler(ctx, b, update)
-				}
-			} else if len(t_list) > 1 {
-				// cmd with parameters
-				if CMDBindAppReg.Match(t_cmd_bytes) {
-					bindAppHandlerFromCMD(ctx, b, chat_id, t_list)
-				} else if CMDDelAppReg.Match(t_cmd_bytes) {
-					delAppByFromCMD(ctx, b, chat_id, t_list)
-				} else if CMDBindReg.Match(t_cmd_bytes) {
-					bindAccountFromCMD(ctx, b, chat_id, t_list)
-				} else if CMDUnbindReg.Match(t_cmd_bytes) {
-					unbindUserFromCMD(ctx, b, chat_id, t_list)
-				} else if CMDReAuthReg.Match(t_cmd_bytes) {
-					reAuthUserByAppAliasUserAliasFromCMD(ctx, b, chat_id, t_list)
-				} else if CMDUnbindOtherReg.Match(t_cmd_bytes) {
-					unbindUserOtherFromCMD(ctx, b, chat_id, t_list)
-				} else {
-					// print help
-					helpHandler(ctx, b, update)
-				}
+			if CMDBindAppReg.Match(t_cmd_bytes) {
+				// handle: /bindApp [<client_id> <app_alias>]
+				bindAppFromCMD(ctx, b, chat_id, t_list)
+			} else if CMDDelAppReg.Match(t_cmd_bytes) {
+				// handle: /delApp <app_alias>...
+				delAppBindingFromCMD(ctx, b, chat_id, t_list)
+			} else if CMDBindReg.Match(t_cmd_bytes) {
+				// handle: /bind [app_alias]
+				bindAccountFromCMD(ctx, b, chat_id, t_list)
+			} else if CMDUnbindReg.Match(t_cmd_bytes) {
+				// handle: /unbind [<client_id> <app_alias>]
+				unBindAccountFromCMD(ctx, b, chat_id, t_list)
+			} else if CMDReAuthReg.Match(t_cmd_bytes) {
+				// handle: /reAuth [<client_id> <app_alias>]
+				reAuthAccountFromCMD(ctx, b, chat_id, t_list)
+			} else if CMDUnbindOtherReg.Match(t_cmd_bytes) {
+				// handle: /unbindOther [<client_id> <app_alias>]
+				unBindUserOtherFromCMD(ctx, b, chat_id, t_list)
+			} else if CMDListAppsReg.Match(t_cmd_bytes) {
+				showAPPsHandler(ctx, b, update)
+			} else if CMDListUsersReg.Match(t_cmd_bytes) {
+				showBoundUsersHandler(ctx, b, update)
+			} else if CMDStatReg.Match(t_cmd_bytes) {
+				statHandler(ctx, b, update)
+			} else if CMDStatAllReg.Match(t_cmd_bytes) {
+				statAllHandler(ctx, b, update)
+			} else if CMDStatTaskReg.Match(t_cmd_bytes) {
+				statTaskHandlerFromCMD(ctx, b, chat_id, t_list)
+			} else if CMDHelpReg.Match(t_cmd_bytes) {
+				// print help
+				helpHandler(ctx, b, update)
+			} else {
+				// print help
+				helpHandler(ctx, b, update)
 			}
 		}
 	} else {
@@ -248,24 +235,24 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // handle "/bindApp" and "/bindApp <client_id> <app_alias>"
 // Limitation: just admin and bind app
-func bindAppHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	chat_id := update.Message.Chat.ID
-	// check if user is admin by it's chat_id
-	// non-admin just return
-	if !AdminSet.Has(chat_id) {
-		// b.SendMessage(ctx, &bot.SendMessageParams{
-		//     ChatID: chat_id,
-		//     Text:   "You are not admin, please contact admin to bind an APP.",
-		// })
-		return
-	}
-	// do bind
-	bindAPPHandlerHelper(ctx, b, chat_id)
-}
+// func bindAppHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+// 	chat_id := update.Message.Chat.ID
+// 	// check if user is admin by it's chat_id
+// 	// non-admin just return
+// 	if !AdminSet.Has(chat_id) {
+// 		// b.SendMessage(ctx, &bot.SendMessageParams{
+// 		//     ChatID: chat_id,
+// 		//     Text:   "You are not admin, please contact admin to bind an APP.",
+// 		// })
+// 		return
+// 	}
+// 	// do bind
+// 	bindAPPHandlerHelper(ctx, b, chat_id)
+// }
 
-// handle "/bindApp <client_id> <app_alias>"
+// handle "/bindApp [<client_id> <app_alias>]"
 // Limitation: just admin and bind app
-func bindAppHandlerFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
+func bindAppFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
 	// check if user is admin by it's chat_id
 	// non-admin just return
 	if !AdminSet.Has(chat_id) {
@@ -428,10 +415,10 @@ func saveAppBoundInfo(client_id string, alias string, ctx context.Context, b *bo
 // bind or re-auth account
 //
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// handle "/bind"
-func bindAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+// handle "/bind" step 1
+func bindAccountHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 	// get chat id
-	chat_id := update.Message.Chat.ID
+	// chat_id := update.Message.Chat.ID
 	// check if user has a pending device code for authentication
 	// if yes, send message to user and return
 	if AuthCachedObj.IsLocked(chat_id) {
@@ -445,7 +432,7 @@ func bindAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update) 
 	// get app list
 	app_list, e := storage.GetAllApp()
 	if e != nil {
-		logger.Errorf("<BindAccountHandler> failed to get app list from database, failed with: %v\n", e.Error())
+		logger.Errorf("<bindAccountHandlerS1> failed to get app list from database, failed with: %v\n", e.Error())
 		return
 	}
 	// check if app list is empty
@@ -487,7 +474,7 @@ func bindAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update) 
 			Text:        fmt.Sprintf("Bind an account to %s", app.Alias),
 		})
 		if e != nil {
-			logger.Errorf("<BindAccountHandler> failed to send bind option message to %v, failed with: %v\n", chat_id, e.Error())
+			logger.Errorf("<bindAccountHandlerS1> failed to send bind option message to %v, failed with: %v\n", chat_id, e.Error())
 			continue
 		}
 		msg_id := m.ID
@@ -674,10 +661,10 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 	UsersConfigCacheObj.InitFailCount(userConfig.ID)
 }
 
-// handle "/reAuth"
-func reAuthAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+// handle "/reAuth" step 1
+func reAuthAccountHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 	// get chat id
-	chat_id := update.Message.Chat.ID
+	// chat_id := update.Message.Chat.ID
 	// check if user has a pending device code for authentication
 	// if yes, send message to user and return
 	if AuthCachedObj.IsLocked(chat_id) {
@@ -697,7 +684,7 @@ func reAuthAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update
 		if e != nil {
 			// got error while get data from database
 			t_msg = "Failed to get your binding accounts, please contact admin"
-			logger.Errorf("<reAuthAccountHandler> failed to get users config from db with error: %v\n", e.Error())
+			logger.Errorf("<reAuthAccountHandlerS1> failed to get users config from db with error: %v\n", e.Error())
 		} else {
 			// send different message for empty user's config
 			t_msg = "No binding accounts found! Please binding one with message \"/bind\"."
@@ -714,7 +701,7 @@ func reAuthAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update
 		t_msg := "Failed to get apps-config from db, please contact admin"
 		if e != nil {
 			// got error while get data from database
-			logger.Errorf("<reAuthAccountHandler> failed to get apps-config from db with error: %v\n", e.Error())
+			logger.Errorf("<reAuthAccountHandlerS1> failed to get apps-config from db with error: %v\n", e.Error())
 		}
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chat_id,
@@ -749,7 +736,7 @@ func reAuthAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update
 			Text:        t_msg,
 		})
 		if e != nil {
-			logger.Errorf("<reAuthAccountHandler> failed to send re-auth message to %v with error: %v\n", chat_id, e.Error())
+			logger.Errorf("<reAuthAccountHandlerS1> failed to send re-auth message to %v with error: %v\n", chat_id, e.Error())
 			return
 		}
 		msg_id := m.ID
@@ -767,10 +754,17 @@ func reAuthAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update
 	}
 }
 
-// handle "/bind <app_alias>", msg_list = []string{"/bind", "<app_alias>"}
+// handle "/bind [app_alias]", msg_list = []string{"/bind", "<app_alias>"}
 func bindAccountFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
 	// no app_alias, just return
 	if len(msg_list) <= 1 {
+		bindAccountHandlerS1(ctx, b, chat_id)
+		return
+	} else if len(msg_list) > 2 {
+		b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chat_id,
+			Text:   "Incorrect cmd. Please input like \"/bind [app_alias]\".",
+		})
 		return
 	}
 	app_alias := msg_list[1]
@@ -792,10 +786,11 @@ func bindAccountFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list
 	handleAccountAuth(ctx, b, chat_id, app_conf.ID, &app_conf.ClientId, &app_alias, 0, false)
 }
 
-// handle "/reAuth <app_alias> <user_alias>"
-func reAuthUserByAppAliasUserAliasFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
+// handle "/reAuth [<app_alias> <user_alias>]"
+func reAuthAccountFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
 	// no app_alias, just return
 	if len(msg_list) <= 1 {
+		reAuthAccountHandlerS1(ctx, b, chat_id)
 		return
 	} else if len(msg_list) > 3 {
 		logger.Errorf("<reAuthUserByAppAliasUserAliasFromCMD> msg_list is too long, len: %v\n", len(msg_list))
@@ -820,7 +815,6 @@ func reAuthUserByAppAliasUserAliasFromCMD(ctx context.Context, b *bot.Bot, chat_
 			// database error, logging
 			logger.Errorf("<reAuthUserByAppAliasUserAliasFromCMD> failed to get app_id by alias %v, failed with: %v\n", app_alias, e.Error())
 		}
-
 		return
 	}
 	// get user's config by app_id, chat_id, user's alias,
@@ -853,24 +847,24 @@ func reAuthUserByAppAliasUserAliasFromCMD(ctx context.Context, b *bot.Bot, chat_
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// handle "/unbind"
-func unBindAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	// get usersconfig stat stat
-	chat_id := update.Message.Chat.ID
-	stat := storage.GetAppStatsForUser(chat_id)
-	unbindAccountHandlerHelper(ctx, b, chat_id, stat)
-}
+// // handle "/unbind"
+// func unBindAccountHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+// 	// get usersconfig stat stat
+// 	chat_id := update.Message.Chat.ID
+// 	stat := storage.GetAppStatsForUser(chat_id)
+// 	unbindAccountHandlerHelper(ctx, b, chat_id, stat)
+// }
 
-// handle "/unbindOther"
-// admin only
-func unBindAccountHandlerOther(ctx context.Context, b *bot.Bot, update *models.Update) {
-	// get usersconfig stat stat
-	chat_id := update.Message.Chat.ID
-	if AdminSet.Has(chat_id) {
-		stat := storage.GetAppStatsOnlyBoundUser()
-		unbindAccountHandlerHelper(ctx, b, chat_id, stat)
-	}
-}
+// // handle "/unbindOther"
+// // admin only
+// func unBindAccountHandlerOther(ctx context.Context, b *bot.Bot, update *models.Update) {
+// 	// get usersconfig stat stat
+// 	chat_id := update.Message.Chat.ID
+// 	if AdminSet.Has(chat_id) {
+// 		stat := storage.GetAppStatsOnlyBoundUser()
+// 		unbindAccountHandlerHelper(ctx, b, chat_id, stat)
+// 	}
+// }
 
 // unbind account handler helper
 func unbindAccountHandlerHelper(ctx context.Context, b *bot.Bot, chat_id int64, stat []*storage.AppConfigStat) {
@@ -1064,9 +1058,11 @@ func delUserConfig(ctx context.Context, b *bot.Bot, chat_id int64, user_id uint,
 	})
 }
 
-// handle "/unbind <app_alias> <user_alias>", used by generic user
-func unbindUserFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
+// handle "/unbind [<app_alias> <user_alias>]", used by generic user
+func unBindAccountFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
 	if len(msg_list) <= 1 {
+		stat := storage.GetAppStatsForUser(chat_id)
+		unbindAccountHandlerHelper(ctx, b, chat_id, stat)
 		return
 	} else if len(msg_list) > 3 {
 		logger.Errorf("<unbindUserFromCMD> msg_list is too long, len: %v\n", len(msg_list))
@@ -1112,12 +1108,17 @@ func unbindUserFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list 
 	delUserConfig(ctx, b, chat_id, userConf.ID, userConf.MsUsername)
 }
 
-// handle "/unbind <app_alias> <user_alias>", used by admin
-func unbindUserOtherFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
+// handle "/unbind [<app_alias> <user_alias>]", used by admin
+func unBindUserOtherFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
+	if !AdminSet.Has(chat_id) {
+		return
+	}
 	if len(msg_list) <= 1 {
+		stat := storage.GetAppStatsOnlyBoundUser()
+		unbindAccountHandlerHelper(ctx, b, chat_id, stat)
 		return
 	} else if len(msg_list) > 3 {
-		logger.Errorf("<UnbindUser> msg_list is too long, len: %v\n", len(msg_list))
+		logger.Errorf("<unBindUserOtherFromCMD> msg_list is invalid, len: %v\n", len(msg_list))
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chat_id,
 			Text:   "Incorrect cmd. Please input like \"/unbind <app_alias> <user_alias>\".",
@@ -1137,7 +1138,7 @@ func unbindUserOtherFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_
 		})
 		if e != nil {
 			// database error, logging
-			logger.Errorf("<UnbindUser> failed to get app_id by alias %v, failed with: %v\n", app_alias, e.Error())
+			logger.Errorf("<unBindUserOtherFromCMD> failed to get app_id by alias %v, failed with: %v\n", app_alias, e.Error())
 		}
 
 		return
@@ -1152,7 +1153,7 @@ func unbindUserOtherFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_
 		})
 		if e != nil {
 			// database error, logging
-			logger.Errorf("<UnbindUser> failed to get user_id by alias %v, failed with: %v\n", user_alias, e.Error())
+			logger.Errorf("<unBindUserOtherFromCMD> failed to get user_id by alias %v, failed with: %v\n", user_alias, e.Error())
 		}
 	}
 	// delete
@@ -1172,8 +1173,8 @@ func unbindUserOtherFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_
 
 // handle "/delApp"
 // admin only
-func delAppHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	chat_id := update.Message.Chat.ID
+func delBoundAppHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
+	// chat_id := update.Message.Chat.ID
 	// no-admin will do nothing
 	if !AdminSet.Has(chat_id) {
 		return
@@ -1214,7 +1215,7 @@ func delAppHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 			Text:        t_msg,
 		})
 		if e != nil {
-			logger.Errorf("<DelAppHandler> failed to send delete option message %v to %v, failed with: %v\n", v.Alias, chat_id, e.Error())
+			logger.Errorf("<delBoundAppHandlerS1> failed to send delete option message %v to %v, failed with: %v\n", v.Alias, chat_id, e.Error())
 		} else {
 			msg_id := m.ID
 			// add to BindCached
@@ -1290,13 +1291,13 @@ func appDeletionHelper(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 
 // handle "/delApp <app_alias>..."
 // admin only
-func delAppByFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, cmd_list []string) {
+func delAppBindingFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, cmd_list []string) {
 	// no-admin will do nothing
 	if !AdminSet.Has(chat_id) {
 		return
 	}
 	if len(cmd_list) < 2 {
-		// do nothing here
+		delBoundAppHandlerS1(ctx, b, chat_id)
 		return
 	}
 	for _, app_alias := range cmd_list[1:] {
@@ -1485,7 +1486,7 @@ func handleSendStats(ctx context.Context, b *bot.Bot, tg_id int64, results []*st
 	})
 }
 
-// hand "/help"
+// handle "/help"
 func helpHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	tg_id := update.Message.Chat.ID
 	var t_msg string
@@ -1494,6 +1495,72 @@ func helpHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	} else {
 		t_msg = fmt.Sprintf("%s\n%s", ConfigYamlObj.Notice, HelpContent)
 	}
+	b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: tg_id,
+		Text:   t_msg,
+	})
+}
+
+// // handle "/statTask"
+// func statTaskHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+// 	tg_id := update.Message.Chat.ID
+// 	handleSendTaskStats(ctx, b, tg_id, DefaultQuantityOfTaskRecords)
+// }
+
+// handle "/statTask [<N>]"
+func statTaskHandlerFromCMD(ctx context.Context, b *bot.Bot, tg_id int64, cmd_list []string) {
+	var n int
+	var err error
+	if len(cmd_list) <= 1 {
+		n = DefaultQuantityOfTaskRecords
+	}
+	t_n := cmd_list[1]
+	// convert string into int
+	n, err = strconv.Atoi(t_n)
+	if err != nil {
+		n = DefaultQuantityOfTaskRecords
+	}
+	handleSendTaskStats(ctx, b, tg_id, n)
+}
+
+func handleSendTaskStats(ctx context.Context, b *bot.Bot, tg_id int64, n int) {
+	// check if user is admin by it's tg_id
+	// non-admin just return
+	if !AdminSet.Has(tg_id) {
+		// b.SendMessage(ctx, &bot.SendMessageParams{
+		//     ChatID: tg_id,
+		//     Text:   "You are not admin, please contact admin to bind an APP.",
+		// })
+		return
+	}
+	results, e := storage.GetTaskRecordsLatestN(n)
+	if e != nil {
+		logger.Errorf("<handleSendTaskStats> db query failed on table task_records, failed with: %v\n", e.Error())
+		b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: tg_id,
+			Text:   "DB query failed on table task_records!",
+		})
+		return
+	}
+	if len(results) == 0 {
+		// logger.Debugln("<StatHandler> no task running record yet!")
+		b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: tg_id,
+			Text:   "No task running record yet!",
+		})
+		return
+	}
+	t_msg_builder := strings.Builder{}
+	t_msg_builder.WriteString("Latest task running records:")
+	t_msg_builder.WriteString("\n - (run at) (duration)")
+	for _, record := range results {
+		t_start_time := utils.GetLocalTimeStringAt(record.StartTime, 0, ConfigYamlObj.TZ)
+		t_duration := record.Duration
+		t_t_msg := fmt.Sprintf(" - %v %v", t_start_time, t_duration)
+		t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
+	}
+	t_msg := t_msg_builder.String()
+	t_msg_builder.Reset()
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: tg_id,
 		Text:   t_msg,
