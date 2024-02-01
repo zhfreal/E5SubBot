@@ -76,7 +76,7 @@ func CheckAuthStatusOfDeviceCode(ctx context.Context, token_cache *TokenCache) e
 			token_cache.RefreshToken = t_auth_result.RefreshToken
 			token_cache.ExpireIn = t_auth_result.ExpiresIn
 			token_cache.ExpireTime = time.Now().Add(time.Second * time.Duration(t_auth_result.ExpiresIn)).Unix()
-			// get user
+			// get user, userPrincipalName as alias
 			t_alias, t_mail := GetMeInfo(&token_cache.AccessToken, nil)
 			token_cache.Username = t_mail
 			token_cache.Alias = t_alias

@@ -342,7 +342,7 @@ type Users struct {
 	TgId         int64  `gorm:"column:tg_id;not null"`
 	MsId         string `gorm:"column:ms_id;not null"`
 	MsUsername   string `gorm:"column:ms_username;not null"` // ms account, an email address
-	Alias        string `gorm:"column:alias;not null"`       // display name of ms account
+	Alias        string `gorm:"column:alias;not null"`       // userPrincipalName of ms account
 	AccessToken  string `gorm:"column:access_token;not null"`
 	RefreshToken string `gorm:"column:refresh_token;not null"`
 	ExpiresAt    int64  `gorm:"column:expire_at;not null"`
