@@ -27,12 +27,12 @@ func GetToken(uc *storage.Users) (string, bool, error) {
 			// failed to refresh
 			failed_to_refreshed = true
 			// add refreshFailCount
-			UsersConfigCacheObj.SetFailCount(uc.ID)
+			usersConfigCacheObj.SetFailCount(uc.ID)
 		} else {
 			// succeed to refresh, then store new access token,
 			// reset refreshFailCount after
-			UsersConfigCacheObj.ResetFailCount(uc.ID)
-			expire_at := GetExpiredTimeFromNowAfter(expire_in)
+			usersConfigCacheObj.ResetFailCount(uc.ID)
+			expire_at := getExpiredTimeFromNowAfter(expire_in)
 			uc.AccessToken = access_token
 			uc.RefreshToken = refresh_token
 			uc.ExpiresAt = expire_at.Unix()
@@ -78,7 +78,7 @@ func ShowToken(account string, force_refresh bool) {
 				continue
 			} else {
 				// succeed to refresh, then store new access token,
-				expire_at := GetExpiredTimeFromNowAfter(expire_in)
+				expire_at := getExpiredTimeFromNowAfter(expire_in)
 				uc.AccessToken = access_token
 				uc.RefreshToken = refresh_token
 				uc.ExpiresAt = expire_at.Unix()

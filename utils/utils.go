@@ -50,10 +50,10 @@ func getTimeHMSString(t *time.Time) string {
 
 // return date string "2006-01-02", if given unix time before today in localtime;
 // return hour:min:sec string "15:04:05", if given unix time is today in localtime;
-func GetTimeString(t int64) string {
-	t_t := time.Unix(t, 0)
+func GetTimeString(t int64, loc string) string {
+	t_t := GetLocalTimeAt(t, 0, loc)
 	t_t_d := *getDateTimeByTime(&t_t)
-	t_s := time.Now()
+	t_s := GetLocalTimeNow(loc)
 	t_s_d := *getDateTimeByTime(&t_s)
 	if t_t_d.Before(t_s_d) {
 		return getTimeDateString(&t_t)

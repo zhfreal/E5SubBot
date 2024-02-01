@@ -58,7 +58,7 @@ func read_config(file_path string) (*config.ConfigYaml, error) {
 	}
 
 	// proxy
-	ProxyObj, err = config.NewProxyValid(config_yaml.Proxy)
+	proxyObj, err = config.NewProxyValid(config_yaml.Proxy)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func read_mail_template() {
 	if len(template) > 0 {
 		t_byts, err := os.ReadFile(template)
 		if err != nil {
-			t_path := filepath.Join(ConfigYamlObj.Workspace, template)
+			t_path := filepath.Join(configYamlObj.Workspace, template)
 			t_byts, _ = os.ReadFile(t_path)
 		}
 		t_template_content := string(t_byts)
@@ -127,8 +127,8 @@ func read_mail_template() {
 	if len(template_content) == 0 {
 		template_content = ms.MailTemplate
 	}
-	ConfigYamlObj.MS.Mail.AutoSendMails.Template = template
-	ConfigYamlObj.MS.Mail.AutoSendMails.TemplateContent = template_content
+	configYamlObj.MS.Mail.AutoSendMails.Template = template
+	configYamlObj.MS.Mail.AutoSendMails.TemplateContent = template_content
 }
 
 func monitor_config_change(file_path string) {
@@ -140,36 +140,36 @@ func monitor_config_change(file_path string) {
 			return
 		}
 		// bot_token changed, warning to restart daemon to take effect
-		if new_config.BotToken != ConfigYamlObj.BotToken {
+		if new_config.BotToken != configYamlObj.BotToken {
 			logger.Warnf("bot_token changed, please restart daemon to take effect\n")
 		}
 		// proxy changed, replace ConfigYamlInstance.Proxy to new, and re-create ProxyObj
-		if new_config.Proxy != ConfigYamlObj.Proxy {
-			ConfigYamlObj.Proxy = new_config.Proxy
-			ProxyObj, err = config.NewProxyValid(ConfigYamlObj.Proxy)
+		if new_config.Proxy != configYamlObj.Proxy {
+			configYamlObj.Proxy = new_config.Proxy
+			proxyObj, err = config.NewProxyValid(configYamlObj.Proxy)
 			if err != nil {
 				logger.Warnf("proxy section is invalid, please do double check\n")
 			}
 		}
 		// Goroutine, BindMax, ErrLimit, Notice changed, just copy to ConfigYamlInstance
-		ConfigYamlObj.BindMax = new_config.BindMax
-		ConfigYamlObj.Goroutine = new_config.Goroutine
-		ConfigYamlObj.ErrLimit = new_config.ErrLimit
-		ConfigYamlObj.Notice = new_config.Notice
+		configYamlObj.BindMax = new_config.BindMax
+		configYamlObj.Goroutine = new_config.Goroutine
+		configYamlObj.ErrLimit = new_config.ErrLimit
+		configYamlObj.Notice = new_config.Notice
 		// re-create AdminSet, if admin list changed
 		if len(new_config.Admin) > 0 {
-			AdminSet = config.NewAdminList(getAdmins())
+			adminSet = config.NewAdminList(getAdmins())
 		}
 		// cron changed, need cronjob to stop to change the cron setting
-		if new_config.CronConf.Enabled != ConfigYamlObj.CronConf.Enabled ||
-			new_config.CronConf.Task != ConfigYamlObj.CronConf.Task ||
-			new_config.CronConf.Notice != ConfigYamlObj.CronConf.Notice {
-			ConfigYamlObj.CronConf.Enabled = new_config.CronConf.Enabled
-			ConfigYamlObj.CronConf.Task = new_config.CronConf.Task
-			ConfigYamlObj.CronConf.Notice = new_config.CronConf.Notice
+		if new_config.CronConf.Enabled != configYamlObj.CronConf.Enabled ||
+			new_config.CronConf.Task != configYamlObj.CronConf.Task ||
+			new_config.CronConf.Notice != configYamlObj.CronConf.Notice {
+			configYamlObj.CronConf.Enabled = new_config.CronConf.Enabled
+			configYamlObj.CronConf.Task = new_config.CronConf.Task
+			configYamlObj.CronConf.Notice = new_config.CronConf.Notice
 			//  we need wait for the original cronjob to finish
-			if CronObj != nil {
-				ctx := CronObj.Stop()
+			if cronObj != nil {
+				ctx := cronObj.Stop()
 				// cron done
 				done_ch := ctx.Done()
 			THIS_LOOP:
@@ -182,52 +182,52 @@ func monitor_config_change(file_path string) {
 					}
 				}
 			}
-			init_background_tasks(ConfigYamlObj.CronConf)
+			init_background_tasks(configYamlObj.CronConf)
 		}
 		// DB changed, need to restart daemon to take effect
-		if new_config.DB.DBType != ConfigYamlObj.DB.DBType {
+		if new_config.DB.DBType != configYamlObj.DB.DBType {
 			logger.Warnf("DB changed, please restart daemon to take effect\n")
 		} else if new_config.DB.DBType == "mysql" {
-			if new_config.DB.Mysql.Host != ConfigYamlObj.DB.Mysql.Host ||
-				new_config.DB.Mysql.Port != ConfigYamlObj.DB.Mysql.Port ||
-				new_config.DB.Mysql.User != ConfigYamlObj.DB.Mysql.User ||
-				new_config.DB.Mysql.Password != ConfigYamlObj.DB.Mysql.Password ||
-				new_config.DB.Mysql.Database != ConfigYamlObj.DB.Mysql.Database ||
-				new_config.DB.Mysql.TLS != ConfigYamlObj.DB.Mysql.TLS {
+			if new_config.DB.Mysql.Host != configYamlObj.DB.Mysql.Host ||
+				new_config.DB.Mysql.Port != configYamlObj.DB.Mysql.Port ||
+				new_config.DB.Mysql.User != configYamlObj.DB.Mysql.User ||
+				new_config.DB.Mysql.Password != configYamlObj.DB.Mysql.Password ||
+				new_config.DB.Mysql.Database != configYamlObj.DB.Mysql.Database ||
+				new_config.DB.Mysql.TLS != configYamlObj.DB.Mysql.TLS {
 				logger.Warnf("DB changed, please restart daemon to take effect\n")
 			}
 		} else if new_config.DB.DBType == "sqlite" {
-			if new_config.DB.Sqlite.DBFile != ConfigYamlObj.DB.Sqlite.DBFile {
+			if new_config.DB.Sqlite.DBFile != configYamlObj.DB.Sqlite.DBFile {
 				logger.Warnf("DB changed, please restart daemon to take effect\n")
 			}
 		}
 		// if log settings changed, need to restart daemon to take effect
-		if new_config.Log.LogIntoFile != ConfigYamlObj.Log.LogIntoFile ||
-			new_config.Log.LogFile != ConfigYamlObj.Log.LogFile ||
-			new_config.Log.LogLevel != ConfigYamlObj.Log.LogLevel ||
-			new_config.Log.MaxSize != ConfigYamlObj.Log.MaxSize ||
-			new_config.Log.MaxBackups != ConfigYamlObj.Log.MaxBackups ||
-			new_config.Log.MaxAge != ConfigYamlObj.Log.MaxAge ||
-			new_config.Workspace != ConfigYamlObj.Workspace {
+		if new_config.Log.LogIntoFile != configYamlObj.Log.LogIntoFile ||
+			new_config.Log.LogFile != configYamlObj.Log.LogFile ||
+			new_config.Log.LogLevel != configYamlObj.Log.LogLevel ||
+			new_config.Log.MaxSize != configYamlObj.Log.MaxSize ||
+			new_config.Log.MaxBackups != configYamlObj.Log.MaxBackups ||
+			new_config.Log.MaxAge != configYamlObj.Log.MaxAge ||
+			new_config.Workspace != configYamlObj.Workspace {
 			logger.Warnf("log settings changed, please restart daemon to take effect\n")
 		}
 		// read new setting for SaveOpDetails, SaveOpDetails
-		ConfigYamlObj.Log.SaveOpDetails = new_config.Log.SaveOpDetails
-		ConfigYamlObj.Log.SaveTaskRecords = new_config.Log.SaveOpDetails
+		configYamlObj.Log.SaveOpDetails = new_config.Log.SaveOpDetails
+		configYamlObj.Log.SaveTaskRecords = new_config.Log.SaveOpDetails
 		// if Workspace changed, need to restart daemon to take effect
-		if new_config.Workspace != ConfigYamlObj.Workspace {
+		if new_config.Workspace != configYamlObj.Workspace {
 			logger.Warnf("Workspace changed, please restart daemon to take effect\n")
 		}
 		// copy new_config.MS to ConfigYamlObj.MS
-		*(ConfigYamlObj.MS.Mail.ReadMails) = *(new_config.MS.Mail.ReadMails)
-		*(ConfigYamlObj.MS.Mail.SearchMails) = *(new_config.MS.Mail.SearchMails)
-		*(ConfigYamlObj.MS.Mail.AutoSendMails) = *(new_config.MS.Mail.AutoSendMails)
-		*(ConfigYamlObj.MS.Mail.AutoDeleteMails) = *(new_config.MS.Mail.AutoDeleteMails)
-		*(ConfigYamlObj.MS.File.ListFiles) = *(new_config.MS.File.ListFiles)
-		*(ConfigYamlObj.MS.Calendar.ListCalendars) = *(new_config.MS.Calendar.ListCalendars)
-		*(ConfigYamlObj.MS.Calendar.ListEvents) = *(new_config.MS.Calendar.ListEvents)
-		*(ConfigYamlObj.MS.Calendar.ListReminders) = *(new_config.MS.Calendar.ListReminders)
-		*(ConfigYamlObj.MS.Calendar.GetSchedule) = *(new_config.MS.Calendar.GetSchedule)
+		*(configYamlObj.MS.Mail.ReadMails) = *(new_config.MS.Mail.ReadMails)
+		*(configYamlObj.MS.Mail.SearchMails) = *(new_config.MS.Mail.SearchMails)
+		*(configYamlObj.MS.Mail.AutoSendMails) = *(new_config.MS.Mail.AutoSendMails)
+		*(configYamlObj.MS.Mail.AutoDeleteMails) = *(new_config.MS.Mail.AutoDeleteMails)
+		*(configYamlObj.MS.File.ListFiles) = *(new_config.MS.File.ListFiles)
+		*(configYamlObj.MS.Calendar.ListCalendars) = *(new_config.MS.Calendar.ListCalendars)
+		*(configYamlObj.MS.Calendar.ListEvents) = *(new_config.MS.Calendar.ListEvents)
+		*(configYamlObj.MS.Calendar.ListReminders) = *(new_config.MS.Calendar.ListReminders)
+		*(configYamlObj.MS.Calendar.GetSchedule) = *(new_config.MS.Calendar.GetSchedule)
 		// resolve template and templatecontent
 		read_mail_template()
 	})
@@ -237,7 +237,7 @@ func monitor_config_change(file_path string) {
 
 func getAdmins() []int64 {
 	var result []int64
-	for _, v := range ConfigYamlObj.Admin {
+	for _, v := range configYamlObj.Admin {
 		id, _ := strconv.ParseInt(v, 10, 64)
 		result = append(result, id)
 	}
@@ -249,10 +249,10 @@ func getAdmins() []int64 {
 // this must be called after botTelegram initialized
 func init_background_tasks(cron_conf *config.ConfigCron) {
 	if cron_conf.Enabled {
-		CronObj = cron.New()
-		CronObj.AddFunc(cron_conf.Task, PerformTasks)
-		CronObj.AddFunc(cron_conf.Notice, NotifyStats)
-		CronObj.Start()
+		cronObj = cron.New()
+		cronObj.AddFunc(cron_conf.Task, PerformTasks)
+		cronObj.AddFunc(cron_conf.Notice, NotifyStats)
+		cronObj.Start()
 	}
 }
 
@@ -261,28 +261,28 @@ func Init(conf string) {
 	vp = viper.New()
 	// read config
 	var err error
-	ConfigYamlObj, err = read_config(conf)
+	configYamlObj, err = read_config(conf)
 	if err != nil {
 		logger.Errorf("read_config error: %v\n", err.Error())
 		os.Exit(1)
 	}
 	// init logger
-	logger.Init(ConfigYamlObj.Log.LogIntoFile,
-		ConfigYamlObj.Workspace,
-		ConfigYamlObj.Log.LogFile,
-		ConfigYamlObj.Log.LogLevel,
-		ConfigYamlObj.Log.MaxSize,
-		ConfigYamlObj.Log.MaxBackups,
-		ConfigYamlObj.Log.MaxAge)
+	logger.Init(configYamlObj.Log.LogIntoFile,
+		configYamlObj.Workspace,
+		configYamlObj.Log.LogFile,
+		configYamlObj.Log.LogLevel,
+		configYamlObj.Log.MaxSize,
+		configYamlObj.Log.MaxBackups,
+		configYamlObj.Log.MaxAge)
 	// storage init must be done after logger init, because storage.Init() would using logger
-	storage.Init(ConfigYamlObj.Workspace, ConfigYamlObj.DB)
+	storage.Init(configYamlObj.Workspace, configYamlObj.DB)
 	// do cache initialization
-	AuthCachedObj = NewAuthCache()
-	BindCachedObj = NewBindCache()
-	UsersConfigCacheObj = NewUsersConfigCache()
-	JobLock = &sync.Mutex{}
+	authCachedObj = NewAuthCache()
+	bindCachedObj = NewBindCache()
+	usersConfigCacheObj = NewUsersConfigCache()
+	jobLock = &sync.Mutex{}
 	// AdminList
-	AdminSet = config.NewAdminList(getAdmins())
+	adminSet = config.NewAdminList(getAdmins())
 	// setup monitor to monitor the change of config file
 	// this should be run in goroutine, because vp.WatchConfig() will block the main goroutine
 	go monitor_config_change(conf)

@@ -22,14 +22,14 @@ func Start(config_file string) {
 	}
 	// add socks5 proxy if it is set in config
 	// make proxied bot client base on config.ProxyObj
-	if ProxyObj != nil && ProxyObj.UrlStr != "" {
+	if proxyObj != nil && proxyObj.UrlStr != "" {
 		transport := &http.Transport{
-			Proxy: http.ProxyURL(ProxyObj.Url),
+			Proxy: http.ProxyURL(proxyObj.Url),
 		}
 		opts = append(opts, bot.WithHTTPClient(time.Minute, &http.Client{Transport: transport}))
 	}
 
-	botTelegram, err = bot.New(ConfigYamlObj.BotToken, opts...)
+	botTelegram, err = bot.New(configYamlObj.BotToken, opts...)
 	if nil != err {
 		// panics for the sake of simplicity.
 		// you should handle this error properly in your code.
@@ -46,7 +46,7 @@ func Start(config_file string) {
 	}()
 	// init background task, th
 	// this must be init cronjob after bot start
-	init_background_tasks(ConfigYamlObj.CronConf)
+	init_background_tasks(configYamlObj.CronConf)
 	// debug only
 	// PerformTasks()
 	wg.Wait()

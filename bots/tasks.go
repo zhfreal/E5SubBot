@@ -35,15 +35,15 @@ func NotifyStats() {
 }
 
 func PerformTasks() {
-	if ok := JobLock.TryLock(); !ok {
+	if ok := jobLock.TryLock(); !ok {
 		logger.Info("<PerformTasks> job is running, skip this time")
 		return
 	}
-	defer JobLock.Unlock()
+	defer jobLock.Unlock()
 	var t_start_time time.Time
 	var t_end_time time.Time
 	// record this task
-	if ConfigYamlObj.Log.SaveTaskRecords {
+	if configYamlObj.Log.SaveTaskRecords {
 		t_start_time = time.Now()
 	}
 	// get all users config
@@ -70,7 +70,7 @@ func PerformTasks() {
 	var done chan bool
 	// tasks_count := 0
 	// init all chan
-	thread_count := utils.MinInt(int(t_len_users_config*len(ms.Ops)/2), ConfigYamlObj.Goroutine)
+	thread_count := utils.MinInt(int(t_len_users_config*len(ms.Ops)/2), configYamlObj.Goroutine)
 	// make more rooms for chan, consider we split the tasks into smaller tasks.
 	chan_num := thread_count * 10
 	in = make(chan *ms.Task, chan_num)
@@ -98,7 +98,7 @@ func PerformTasks() {
 				logger.Errorf("<PerformTasks> failed to get token by id %v, failed with: %v\n", user_id, e.Error())
 				// notice user refresh token failed, and give a option to unbind this account
 				if is_refresh_err {
-					t_refresh_failure_count := UsersConfigCacheObj.GetFailCount(user_id)
+					t_refresh_failure_count := usersConfigCacheObj.GetFailCount(user_id)
 					ms_username := uc.MsUsername
 					app_name := app_map[uc.AppId]
 					// send notice to unbind, this message is not the one which bounded the unbound account action
@@ -113,9 +113,9 @@ func PerformTasks() {
 						return
 					}
 					// clean old unbind message to void too many messages in user side
-					t_key_list := BindCachedObj.FindMsgKeyByChatIDAndReplyTypeExtraDataKey1(tg_id, ReplyForUnbindAccountS2, ms_username)
+					t_key_list := bindCachedObj.FindMsgKeyByChatIDAndReplyTypeExtraDataKey1(tg_id, ReplyForUnbindAccountS2, ms_username)
 					for _, v := range t_key_list {
-						CleanTGMsgAndBindCached(context.Background(), botTelegram, v)
+						cleanTGMsgAndBindCached(context.Background(), botTelegram, v)
 					}
 					// send option message to user to unbound this account, and cached in BindCachedObj
 					handleUnbindAccountS1Helper(context.Background(), botTelegram, tg_id, uc, "PerformTasks")
@@ -130,18 +130,18 @@ func PerformTasks() {
 				ms.ArgReadAttachments: false,
 			}
 			// read mails from root
-			if ConfigYamlObj.MS.Mail.ReadMails.Enabled {
+			if configYamlObj.MS.Mail.ReadMails.Enabled {
 				wg_task.Add(1)
-				args[ms.ArgReadAttachments] = ConfigYamlObj.MS.Mail.ReadMails.ReadAttachments
+				args[ms.ArgReadAttachments] = configYamlObj.MS.Mail.ReadMails.ReadAttachments
 				in <- &ms.Task{
 					Func: ms.MailListMailsFrom,
 					Args: args,
 				}
 			}
 			// list mail folders
-			if ConfigYamlObj.MS.Mail.ReadMailFolders.Enabled {
+			if configYamlObj.MS.Mail.ReadMailFolders.Enabled {
 				wg_task.Add(2)
-				args[ms.ArgReadAttachments] = ConfigYamlObj.MS.Mail.ReadMailFolders.ReadAttachments
+				args[ms.ArgReadAttachments] = configYamlObj.MS.Mail.ReadMailFolders.ReadAttachments
 				in <- &ms.Task{
 					Func: ms.MailListMailFolders,
 					Args: args,
@@ -152,11 +152,11 @@ func PerformTasks() {
 				}
 			}
 			// search mails
-			if ConfigYamlObj.MS.Mail.SearchMails.Enabled {
-				args[ms.ArgReadAttachments] = ConfigYamlObj.MS.Mail.SearchMails.ReadAttachments
+			if configYamlObj.MS.Mail.SearchMails.Enabled {
+				args[ms.ArgReadAttachments] = configYamlObj.MS.Mail.SearchMails.ReadAttachments
 				// we rand choice a keyword in ConfigYamlObj.MS.Mail.SearchMails.Keywords, rather than loop keywords
 				// when loop keywords, we may have issues to do search at almost same time
-				t_len := len(ConfigYamlObj.MS.Mail.SearchMails.Keywords)
+				t_len := len(configYamlObj.MS.Mail.SearchMails.Keywords)
 				if t_len > 0 {
 					wg_task.Add(1)
 					in <- &ms.Task{
@@ -170,9 +170,9 @@ func PerformTasks() {
 				}
 			}
 			// delete mails
-			if ConfigYamlObj.MS.Mail.AutoDeleteMails.Enabled {
+			if configYamlObj.MS.Mail.AutoDeleteMails.Enabled {
 				wg_task.Add(1)
-				args[ms.ArgReadAttachments] = ConfigYamlObj.MS.Mail.AutoDeleteMails.ReadAttachments
+				args[ms.ArgReadAttachments] = configYamlObj.MS.Mail.AutoDeleteMails.ReadAttachments
 				in <- &ms.Task{
 					Func: ms.MailsDelListSpecificMailFolders,
 					Args: args,
@@ -180,7 +180,7 @@ func PerformTasks() {
 
 			}
 			// send mail
-			if ConfigYamlObj.MS.Mail.AutoSendMails.Enabled {
+			if configYamlObj.MS.Mail.AutoSendMails.Enabled {
 				wg_task.Add(1)
 				in <- &ms.Task{
 					Func: ms.MailsSend,
@@ -189,7 +189,7 @@ func PerformTasks() {
 
 			}
 			// list files
-			if ConfigYamlObj.MS.File.ListFiles.Enabled {
+			if configYamlObj.MS.File.ListFiles.Enabled {
 				wg_task.Add(6)
 				in <- &ms.Task{
 					Func: ms.ListDrives,
@@ -217,7 +217,7 @@ func PerformTasks() {
 				}
 			}
 			// calendar
-			if ConfigYamlObj.MS.Calendar.ListCalendars.Enabled {
+			if configYamlObj.MS.Calendar.ListCalendars.Enabled {
 				wg_task.Add(3)
 				in <- &ms.Task{
 					Func: ms.ListCalendars,
@@ -232,21 +232,21 @@ func PerformTasks() {
 					Args: args,
 				}
 			}
-			if ConfigYamlObj.MS.Calendar.ListEvents.Enabled {
+			if configYamlObj.MS.Calendar.ListEvents.Enabled {
 				wg_task.Add(1)
 				in <- &ms.Task{
 					Func: ms.ListEvents,
 					Args: args,
 				}
 			}
-			if ConfigYamlObj.MS.Calendar.ListReminders.Enabled {
+			if configYamlObj.MS.Calendar.ListReminders.Enabled {
 				wg_task.Add(1)
 				in <- &ms.Task{
 					Func: ms.ListReminder,
 					Args: args,
 				}
 			}
-			if ConfigYamlObj.MS.Calendar.GetSchedule.Enabled {
+			if configYamlObj.MS.Calendar.GetSchedule.Enabled {
 				wg_task.Add(1)
 				args[ms.ArgMailAddr] = &uc.MsUsername
 				in <- &ms.Task{
@@ -258,19 +258,19 @@ func PerformTasks() {
 	}
 	// we need read the template as the content for sending emails
 	// read template before we start the task
-	if ConfigYamlObj.MS.Mail.AutoSendMails.Enabled {
+	if configYamlObj.MS.Mail.AutoSendMails.Enabled {
 		read_mail_template()
 	}
 	// to reduce the cache size, we need clean Template and TemplateContent after background task done
 	defer func() {
-		ConfigYamlObj.MS.Mail.AutoSendMails.Template = ""
-		ConfigYamlObj.MS.Mail.AutoSendMails.TemplateContent = ""
+		configYamlObj.MS.Mail.AutoSendMails.Template = ""
+		configYamlObj.MS.Mail.AutoSendMails.TemplateContent = ""
 	}()
 
 	// start multiple goroutines to perform WorkingOnMsFromChan
 	for i := 0; i < thread_count; i++ {
 		wg_con.Add(1)
-		go WorkingOnMsFromChan(in, out, done, &wg_con, ConfigYamlObj.Proxy, ConfigYamlObj.MS)
+		go WorkingOnMsFromChan(in, out, done, &wg_con, configYamlObj.Proxy, configYamlObj.MS)
 	}
 	// handle results
 
@@ -294,7 +294,7 @@ RESULT_LOPPER:
 			stats = append(stats, t_s)
 			t_count++
 			// record the details
-			if ConfigYamlObj.Log.SaveOpDetails {
+			if configYamlObj.Log.SaveOpDetails {
 				d := &storage.OpDetails{
 					UserID:    r.ID,
 					OpID:      r.OpID,
@@ -375,10 +375,10 @@ RESULT_LOPPER:
 		logger.Errorf("<PerformTasks> failed to store stats, failed with: %v\n", e.Error())
 	}
 	// just store op_details and task_records when setting is on
-	if ConfigYamlObj.Log.SaveOpDetails {
+	if configYamlObj.Log.SaveOpDetails {
 		storage.SaveOpDetails(details)
 	}
-	if ConfigYamlObj.Log.SaveTaskRecords {
+	if configYamlObj.Log.SaveTaskRecords {
 		// task end here
 		t_end_time = time.Now()
 		t_duration := t_end_time.Sub(t_start_time).Milliseconds()
@@ -399,7 +399,7 @@ func WorkingOnMsFromChan(in chan *ms.Task, out chan *ms.ApiResult, done chan boo
 	for {
 		select {
 		case task := <-in:
-			task.Func(out, &proxy, ConfigYamlObj.MS, task.Args)
+			task.Func(out, &proxy, configYamlObj.MS, task.Args)
 		case ok := <-done:
 			if ok {
 				wg.Done()

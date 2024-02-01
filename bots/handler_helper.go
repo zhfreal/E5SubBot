@@ -18,47 +18,47 @@ import (
 
 // get expiredAt time
 // expired_time in minutes
-func GetExpiredTimeFromNowAfter(seconds int) time.Time {
-	return GetExpiredTimeFromATimeAfter(time.Now(), seconds)
+func getExpiredTimeFromNowAfter(seconds int) time.Time {
+	return getExpiredTimeFromATimeAfter(time.Now(), seconds)
 }
 
-func GetExpiredTimeFromATimeAfter(from_time time.Time, seconds int) time.Time {
+func getExpiredTimeFromATimeAfter(from_time time.Time, seconds int) time.Time {
 	return from_time.Add(time.Duration(seconds) * time.Second)
 }
 
 // delete specific message
-func DeleteMsg(ctx context.Context, b *bot.Bot, chat_id int64, msg_id int) {
+func deleteMsg(ctx context.Context, b *bot.Bot, chat_id int64, msg_id int) {
 	b.DeleteMessage(ctx, &bot.DeleteMessageParams{
 		ChatID:    chat_id,
 		MessageID: msg_id,
 	})
 }
 
-func CleanTGMsgAndBindCached(ctx context.Context, b *bot.Bot, key *MsgKey) {
+func cleanTGMsgAndBindCached(ctx context.Context, b *bot.Bot, key *MsgKey) {
 	// delete msg
-	DeleteMsg(ctx, b, key.ChatID, key.MsgID)
+	deleteMsg(ctx, b, key.ChatID, key.MsgID)
 	// delete cached
-	BindCachedObj.Del(key)
+	bindCachedObj.Del(key)
 }
 
-func CleanMsgBindCachedAndUnlockAuthCache(ctx context.Context, b *bot.Bot, key *MsgKey) {
-	CleanTGMsgAndBindCached(ctx, b, key)
+func cleanMsgBindCachedAndUnlockAuthCache(ctx context.Context, b *bot.Bot, key *MsgKey) {
+	cleanTGMsgAndBindCached(ctx, b, key)
 	// unlock AuthCachedObj
-	AuthCachedObj.Unlock(key.ChatID)
+	authCachedObj.Unlock(key.ChatID)
 }
 
-func CleanMsgBindCachedAndCancelAuthCache(ctx context.Context, b *bot.Bot, key *MsgKey) {
-	CleanTGMsgAndBindCached(ctx, b, key)
+func cleanMsgBindCachedAndCancelAuthCache(ctx context.Context, b *bot.Bot, key *MsgKey) {
+	cleanTGMsgAndBindCached(ctx, b, key)
 	// delete cached
-	AuthCachedObj.Cancel(key.ChatID)
+	authCachedObj.Cancel(key.ChatID)
 }
 
 func CleanMsgBindCachedUnlockAndCancelAuthCache(ctx context.Context, b *bot.Bot, key *MsgKey) {
-	CleanTGMsgAndBindCached(ctx, b, key)
+	cleanTGMsgAndBindCached(ctx, b, key)
 	// delete cached
-	AuthCachedObj.Cancel(key.ChatID)
+	authCachedObj.Cancel(key.ChatID)
 	// unlock AuthCachedObj
-	AuthCachedObj.Unlock(key.ChatID)
+	authCachedObj.Unlock(key.ChatID)
 }
 
 // handle reply messages
@@ -102,9 +102,9 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	if this_msg_type == ReplyFromCallBack || this_msg_type == ReplyWithPureMsg {
 		t_key = &MsgKey{MsgID: msg_id, ChatID: chat_id}
 		// don't handle non-cached msg
-		if !BindCachedObj.Has(t_key) {
+		if !bindCachedObj.Has(t_key) {
 			// clean the callback
-			DeleteMsg(ctx, b, chat_id, msg_id)
+			deleteMsg(ctx, b, chat_id, msg_id)
 			// send msg to user
 			b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: chat_id,
@@ -112,7 +112,7 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 			})
 			return
 		} else {
-			t_value = BindCachedObj.Get(t_key)
+			t_value = bindCachedObj.Get(t_key)
 			// don't handle expired msg
 			if t_value.IsExpired() {
 				// send msg to user
@@ -123,9 +123,9 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 				// clean
 				if t_value.MsgType == ReplyForWaitingAuth {
 					// authentication go routing will clean itself, just do ctx cancel
-					AuthCachedObj.Cancel(t_key.ChatID)
+					authCachedObj.Cancel(t_key.ChatID)
 				} else {
-					CleanTGMsgAndBindCached(ctx, b, t_key)
+					cleanTGMsgAndBindCached(ctx, b, t_key)
 				}
 				return
 			}
@@ -157,7 +157,7 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		} else if t_value.MsgType == ReplyForWaitingAuth {
 			// user request to cancel auth
 			if received_action == ActionCancel {
-				CleanMsgBindCachedAndCancelAuthCache(ctx, b, t_key)
+				cleanMsgBindCachedAndCancelAuthCache(ctx, b, t_key)
 			}
 		} else if t_value.MsgType == ReplyForUnbindAccountS1 {
 			// hand unbind account step 1: handle user's choose (it's an app)
@@ -255,7 +255,7 @@ func replyHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 func bindAppFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
 	// check if user is admin by it's chat_id
 	// non-admin just return
-	if !AdminSet.Has(chat_id) {
+	if !adminSet.Has(chat_id) {
 		// b.SendMessage(ctx, &bot.SendMessageParams{
 		//     ChatID: chat_id,
 		//     Text:   "You are not admin, please contact admin to bind an APP.",
@@ -293,11 +293,11 @@ func bindAPPHandlerHelper(ctx context.Context, b *bot.Bot, chat_id int64) {
 		// store key MsgKey{chat_id, msg_id} in BindCached
 		msg_id := m.ID
 		msgTime := time.Unix(int64(m.Date), 0)
-		expireAt := GetExpiredTimeFromATimeAfter(msgTime, BindCacheTimeInSeconds)
+		expireAt := getExpiredTimeFromATimeAfter(msgTime, BindCacheTimeInSeconds)
 		key := &MsgKey{chat_id, msg_id}
 		// set msg_cached.BindCached
 		v := &MsgValue{MsgType: ReplyForBindAPP, ExpiredAt: expireAt, Extra: nil}
-		BindCachedObj.Add(key, v)
+		bindCachedObj.Add(key, v)
 	}
 }
 
@@ -309,7 +309,7 @@ func handleAPPBound(ctx context.Context, b *bot.Bot, key *MsgKey, msg string) {
 	t_list := strings.Split(msg, " ")
 	chat_id := key.ChatID
 	// clean
-	defer CleanTGMsgAndBindCached(ctx, b, key)
+	defer cleanTGMsgAndBindCached(ctx, b, key)
 	// incorrect format
 	if len(t_list) != 2 {
 		b.SendMessage(ctx, &bot.SendMessageParams{
@@ -391,7 +391,7 @@ func saveAppBoundInfo(client_id string, alias string, ctx context.Context, b *bo
 		return
 	}
 	msg_id := m.ID
-	expireAt := GetExpiredTimeFromNowAfter(BindCacheTimeInSeconds)
+	expireAt := getExpiredTimeFromNowAfter(BindCacheTimeInSeconds)
 	// store to BindCached
 	t_key := &MsgKey{m.Chat.ID, msg_id}
 	t_value := &MsgValue{
@@ -403,7 +403,7 @@ func saveAppBoundInfo(client_id string, alias string, ctx context.Context, b *bo
 			ExtraData2String: alias,
 		},
 	}
-	BindCachedObj.Add(t_key, t_value)
+	bindCachedObj.Add(t_key, t_value)
 }
 
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -421,8 +421,8 @@ func bindAccountHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 	// chat_id := update.Message.Chat.ID
 	// check if user has a pending device code for authentication
 	// if yes, send message to user and return
-	if AuthCachedObj.IsLocked(chat_id) {
-		l_dc := AuthCachedObj.GetDeviceCode(chat_id)
+	if authCachedObj.IsLocked(chat_id) {
+		l_dc := authCachedObj.GetDeviceCode(chat_id)
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chat_id,
 			Text:   fmt.Sprintf("Your have pending device code for authenticate, please finish it! %v", l_dc.Msg),
@@ -438,7 +438,7 @@ func bindAccountHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 	// check if app list is empty
 	if len(app_list) == 0 {
 		msg := "There is no app bound."
-		if AdminSet.Has(chat_id) {
+		if adminSet.Has(chat_id) {
 			// admin
 			msg = fmt.Sprintf("%v.Please use /bindApp to bind an app", msg)
 		} else {
@@ -478,7 +478,7 @@ func bindAccountHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 			continue
 		}
 		msg_id := m.ID
-		expireAt := GetExpiredTimeFromNowAfter(BindCacheTimeInSeconds)
+		expireAt := getExpiredTimeFromNowAfter(BindCacheTimeInSeconds)
 		// store to BindCached
 		t_key := &MsgKey{m.Chat.ID, msg_id}
 		t_value := &MsgValue{
@@ -488,7 +488,7 @@ func bindAccountHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 				ExtraData1Uint: app.ID,
 			},
 		}
-		BindCachedObj.Add(t_key, t_value)
+		bindCachedObj.Add(t_key, t_value)
 	}
 }
 
@@ -510,7 +510,7 @@ func bindAccountHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 //				},
 func handleAccountBinding(ctx context.Context, b *bot.Bot, key *MsgKey, re_auth bool) {
 	chat_id := key.ChatID
-	v := BindCachedObj.Get(key)
+	v := bindCachedObj.Get(key)
 	app_id := v.Extra.ExtraData1Uint
 	// get app config from database
 	app_conf, e := storage.GetAppByID(app_id)
@@ -523,7 +523,7 @@ func handleAccountBinding(ctx context.Context, b *bot.Bot, key *MsgKey, re_auth 
 		return
 	}
 	// clean original cached msg
-	CleanTGMsgAndBindCached(context.Background(), b, key)
+	cleanTGMsgAndBindCached(context.Background(), b, key)
 	var user_id uint
 	if re_auth {
 		user_id = v.Extra.ExtraData2Uint
@@ -545,9 +545,9 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 		return
 	}
 	t_msg := token_cache.Message
-	t_code_expired_at := time.Unix(token_cache.ExpireTime, 0)
+	t_code_expired_at := utils.GetLocalTimeAt(token_cache.ExpireTime, 0, configYamlObj.TZ)
 	t_msg = fmt.Sprintf("Binding account into %v. %v. This code will expire at %v",
-		*app_alias, t_msg, t_code_expired_at.Local().Format("2006-01-02 15:04:05 MST"))
+		*app_alias, t_msg, t_code_expired_at.Format("2006-01-02 15:04:05 MST"))
 	// send message to auth device code, and offer an option to cancel this authorization
 	kb := &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
@@ -575,15 +575,15 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 			ExtraData1String: token_cache.DeviceCode,
 		},
 	}
-	BindCachedObj.Add(t_key, t_value)
+	bindCachedObj.Add(t_key, t_value)
 	// lock AuthCached
 	dc_for_cached := &PendingDeviceCode{ClientID: *client_id, DeviceCode: token_cache.DeviceCode, Msg: t_msg}
-	AuthCachedObj.Lock(chat_id, dc_for_cached, nil)
+	authCachedObj.Lock(chat_id, dc_for_cached, nil)
 	t_expired_durations := time.Until(t_code_expired_at)
 	ctx, cancel := context.WithTimeout(ctx, t_expired_durations)
-	AuthCachedObj.AddCancelFunc(chat_id, cancel)
+	authCachedObj.AddCancelFunc(chat_id, cancel)
 	// clean
-	defer CleanMsgBindCachedAndUnlockAuthCache(ctx, b, t_key)
+	defer cleanMsgBindCachedAndUnlockAuthCache(ctx, b, t_key)
 	e = ms.CheckAuthStatusOfDeviceCode(ctx, token_cache)
 	if e != nil {
 		logger.Errorf("<handleAccountAuth> failed to auth device code with error: %v\n", e.Error())
@@ -658,7 +658,7 @@ func handleAccountAuth(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 		}
 	}
 	// this bind or re-auth process will be considered a successful process for this account, reset failure count
-	UsersConfigCacheObj.InitFailCount(userConfig.ID)
+	usersConfigCacheObj.InitFailCount(userConfig.ID)
 }
 
 // handle "/reAuth" step 1
@@ -667,8 +667,8 @@ func reAuthAccountHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 	// chat_id := update.Message.Chat.ID
 	// check if user has a pending device code for authentication
 	// if yes, send message to user and return
-	if AuthCachedObj.IsLocked(chat_id) {
-		l_dc := AuthCachedObj.GetDeviceCode(chat_id)
+	if authCachedObj.IsLocked(chat_id) {
+		l_dc := authCachedObj.GetDeviceCode(chat_id)
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chat_id,
 			Text:   fmt.Sprintf("Your have pending device code for authenticate, please finish it! %v", l_dc.Msg),
@@ -744,13 +744,13 @@ func reAuthAccountHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 		t_key := &MsgKey{m.Chat.ID, msg_id}
 		t_value := &MsgValue{
 			MsgType:   ReplyForReAuth,
-			ExpiredAt: GetExpiredTimeFromNowAfter(BindCacheTimeInSeconds),
+			ExpiredAt: getExpiredTimeFromNowAfter(BindCacheTimeInSeconds),
 			Extra: &ExtraData{
 				ExtraData1Uint: uc.AppId,
 				ExtraData2Uint: uc.ID,
 			},
 		}
-		BindCachedObj.Add(t_key, t_value)
+		bindCachedObj.Add(t_key, t_value)
 	}
 }
 
@@ -906,14 +906,14 @@ func unbindAccountHandlerHelper(ctx context.Context, b *bot.Bot, chat_id int64, 
 		t_key := &MsgKey{m.Chat.ID, msg_id}
 		t_value := &MsgValue{
 			MsgType:   ReplyForUnbindAccountS1,
-			ExpiredAt: GetExpiredTimeFromNowAfter(BindCacheTimeInSeconds),
+			ExpiredAt: getExpiredTimeFromNowAfter(BindCacheTimeInSeconds),
 			Extra: &ExtraData{
 				ExtraData1String: app.ClientId,
 				ExtraData1Uint:   app.ID,
 				ExtraData2String: app.Alias,
 			},
 		}
-		BindCachedObj.Add(t_key, t_value)
+		bindCachedObj.Add(t_key, t_value)
 	}
 }
 
@@ -925,7 +925,7 @@ func handleUnbindAccountS1(ctx context.Context, b *bot.Bot, key *MsgKey) {
 	if key.ChatID != chat_id {
 		return
 	}
-	t_v := BindCachedObj.Get(key)
+	t_v := bindCachedObj.Get(key)
 	client_id := t_v.Extra.ExtraData1String
 	// get appid
 	appConf, e := storage.GetAppByClientID(client_id)
@@ -948,7 +948,7 @@ func handleUnbindAccountS1(ctx context.Context, b *bot.Bot, key *MsgKey) {
 		return
 	}
 	// clean
-	defer CleanTGMsgAndBindCached(ctx, b, key)
+	defer cleanTGMsgAndBindCached(ctx, b, key)
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chat_id,
 		Text:   "Choose an account to unbind.",
@@ -986,20 +986,20 @@ func handleUnbindAccountS1Helper(ctx context.Context, b *bot.Bot, tg_id int64, u
 	t_key := &MsgKey{m.Chat.ID, msg_id}
 	t_value := &MsgValue{
 		MsgType:   ReplyForUnbindAccountS2,
-		ExpiredAt: GetExpiredTimeFromNowAfter(BindCacheTimeInSeconds),
+		ExpiredAt: getExpiredTimeFromNowAfter(BindCacheTimeInSeconds),
 		Extra: &ExtraData{
 			ExtraData1Uint:   uc.ID,
 			ExtraData1String: uc.MsUsername,
 			ExtraData2String: uc.Alias,
 		},
 	}
-	BindCachedObj.Add(t_key, t_value)
+	bindCachedObj.Add(t_key, t_value)
 }
 
 // unbind account step2
 // handle the unbound action according the user's choose a specific account
 func handleUnbindAccountS2(ctx context.Context, b *bot.Bot, key *MsgKey) {
-	t_v := BindCachedObj.Get(key)
+	t_v := bindCachedObj.Get(key)
 	var user_id uint
 	var e error
 	user_id = t_v.Extra.ExtraData1Uint
@@ -1026,7 +1026,7 @@ func handleUnbindAccountS2(ctx context.Context, b *bot.Bot, key *MsgKey) {
 	}
 
 	// clean before return
-	defer CleanTGMsgAndBindCached(ctx, b, key)
+	defer cleanTGMsgAndBindCached(ctx, b, key)
 	// unbind, delete UsersConfig
 	delUserConfig(ctx, b, key.ChatID, uc.ID, uc.MsUsername)
 }
@@ -1050,7 +1050,7 @@ func delUserConfig(ctx context.Context, b *bot.Bot, chat_id int64, user_id uint,
 	storage.DelStatsByUserID(user_id)
 
 	// remove user cache
-	UsersConfigCacheObj.DelCache(user_id)
+	usersConfigCacheObj.DelCache(user_id)
 	// send message to user
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chat_id,
@@ -1110,7 +1110,7 @@ func unBindAccountFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_li
 
 // handle "/unbind [<app_alias> <user_alias>]", used by admin
 func unBindUserOtherFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_list []string) {
-	if !AdminSet.Has(chat_id) {
+	if !adminSet.Has(chat_id) {
 		return
 	}
 	if len(msg_list) <= 1 {
@@ -1176,7 +1176,7 @@ func unBindUserOtherFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, msg_
 func delBoundAppHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 	// chat_id := update.Message.Chat.ID
 	// no-admin will do nothing
-	if !AdminSet.Has(chat_id) {
+	if !adminSet.Has(chat_id) {
 		return
 	}
 	// get all apps which no user bound
@@ -1222,14 +1222,14 @@ func delBoundAppHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 			t_key := &MsgKey{m.Chat.ID, msg_id}
 			t_value := &MsgValue{
 				MsgType:   ReplyForDeleteAPP,
-				ExpiredAt: GetExpiredTimeFromNowAfter(BindCacheTimeInSeconds),
+				ExpiredAt: getExpiredTimeFromNowAfter(BindCacheTimeInSeconds),
 				Extra: &ExtraData{
 					ExtraData1String: v.ClientId,
 					ExtraData1Uint:   v.ID,
 					ExtraData2String: v.Alias,
 				},
 			}
-			BindCachedObj.Add(t_key, t_value)
+			bindCachedObj.Add(t_key, t_value)
 		}
 	}
 }
@@ -1237,13 +1237,13 @@ func delBoundAppHandlerS1(ctx context.Context, b *bot.Bot, chat_id int64) {
 // cached Extra like： ExtraData1String - client_id; ExtraData1Uint - app_id; ExtraData2String = app_alias
 // handle APP deletion according user's choice
 func handleAPPDeletion(ctx context.Context, b *bot.Bot, key *MsgKey) {
-	value := BindCachedObj.Get(key)
+	value := bindCachedObj.Get(key)
 	// client_id := value.Extra.ExtraData1String
 	app_id := value.Extra.ExtraData1Uint
 	app_alias := value.Extra.ExtraData2String
 	// check if user is admin
 	// non-admin will do nothing
-	if !AdminSet.Has(key.ChatID) {
+	if !adminSet.Has(key.ChatID) {
 		return
 	}
 	// check this APP bound accounts or not
@@ -1265,7 +1265,7 @@ func handleAPPDeletion(ctx context.Context, b *bot.Bot, key *MsgKey) {
 	// do deletion
 	appDeletionHelper(ctx, b, key.ChatID, app_id, app_alias)
 	// do clean all the time, no matter success or fail to delete APP
-	CleanTGMsgAndBindCached(ctx, b, key)
+	cleanTGMsgAndBindCached(ctx, b, key)
 }
 
 // handle APP deletion according user's choice, return delete success or not
@@ -1293,7 +1293,7 @@ func appDeletionHelper(ctx context.Context, b *bot.Bot, chat_id int64, app_id ui
 // admin only
 func delAppBindingFromCMD(ctx context.Context, b *bot.Bot, chat_id int64, cmd_list []string) {
 	// no-admin will do nothing
-	if !AdminSet.Has(chat_id) {
+	if !adminSet.Has(chat_id) {
 		return
 	}
 	if len(cmd_list) < 2 {
@@ -1335,7 +1335,7 @@ func showAPPsHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	if len(s) == 0 {
 		// this is admin
 		var t_msg string
-		if AdminSet.Has(chat_id) {
+		if adminSet.Has(chat_id) {
 			t_msg = "No APPs yet. Please create one."
 		} else {
 			t_msg = "No APPs yet. Please contact with Admins."
@@ -1359,7 +1359,7 @@ func showAPPsHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	for _, k := range app_alias_list {
 		v := s[k]
 		time.Sleep(BotSendMsgInterval)
-		if AdminSet.Has(chat_id) {
+		if adminSet.Has(chat_id) {
 			t_msg = fmt.Sprintf("%v\n    -  %v, Count: %v", t_msg, v.Alias, v.Bound)
 		} else {
 			t_msg = fmt.Sprintf("%v\n    -  %v", t_msg, v.Alias)
@@ -1378,7 +1378,7 @@ func showBoundUsersHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 	var s []*storage.AppsStats
 	var e error
 	// this is an admin
-	if AdminSet.Has(chat_id) {
+	if adminSet.Has(chat_id) {
 		s, e = GetAllAppsStats()
 	} else {
 		// non-admin
@@ -1432,7 +1432,7 @@ func statHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 func statAllHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	tg_id := update.Message.Chat.ID
 	// check tg_id is not admin, just return
-	if !AdminSet.Has(tg_id) {
+	if !adminSet.Has(tg_id) {
 		return
 	}
 	// get all OpStats
@@ -1472,7 +1472,7 @@ func handleSendStats(ctx context.Context, b *bot.Bot, tg_id int64, results []*st
 			t_t_msg := fmt.Sprintf("  %v", user_alias)
 			t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
 			for _, v := range op_stats_slice {
-				t_time_str := utils.GetTimeString(v.LatestTime)
+				t_time_str := utils.GetTimeString(v.LatestTime, configYamlObj.TZ)
 				t_t_msg := fmt.Sprintf("    %v(s/f): %v/%v - %v", v.OpAlias, v.Success, v.Failure, t_time_str)
 				t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
 			}
@@ -1490,10 +1490,10 @@ func handleSendStats(ctx context.Context, b *bot.Bot, tg_id int64, results []*st
 func helpHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	tg_id := update.Message.Chat.ID
 	var t_msg string
-	if AdminSet.Has(tg_id) {
-		t_msg = fmt.Sprintf("%s\n%s", ConfigYamlObj.Notice, HelpContentAdmin)
+	if adminSet.Has(tg_id) {
+		t_msg = fmt.Sprintf("%s\n%s", configYamlObj.Notice, HelpContentAdmin)
 	} else {
-		t_msg = fmt.Sprintf("%s\n%s", ConfigYamlObj.Notice, HelpContent)
+		t_msg = fmt.Sprintf("%s\n%s", configYamlObj.Notice, HelpContent)
 	}
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: tg_id,
@@ -1513,12 +1513,13 @@ func statTaskHandlerFromCMD(ctx context.Context, b *bot.Bot, tg_id int64, cmd_li
 	var err error
 	if len(cmd_list) <= 1 {
 		n = DefaultQuantityOfTaskRecords
-	}
-	t_n := cmd_list[1]
-	// convert string into int
-	n, err = strconv.Atoi(t_n)
-	if err != nil {
-		n = DefaultQuantityOfTaskRecords
+	} else {
+		t_n := cmd_list[1]
+		// convert string into int
+		n, err = strconv.Atoi(t_n)
+		if err != nil {
+			n = DefaultQuantityOfTaskRecords
+		}
 	}
 	handleSendTaskStats(ctx, b, tg_id, n)
 }
@@ -1526,7 +1527,7 @@ func statTaskHandlerFromCMD(ctx context.Context, b *bot.Bot, tg_id int64, cmd_li
 func handleSendTaskStats(ctx context.Context, b *bot.Bot, tg_id int64, n int) {
 	// check if user is admin by it's tg_id
 	// non-admin just return
-	if !AdminSet.Has(tg_id) {
+	if !adminSet.Has(tg_id) {
 		// b.SendMessage(ctx, &bot.SendMessageParams{
 		//     ChatID: tg_id,
 		//     Text:   "You are not admin, please contact admin to bind an APP.",
@@ -1552,11 +1553,11 @@ func handleSendTaskStats(ctx context.Context, b *bot.Bot, tg_id int64, n int) {
 	}
 	t_msg_builder := strings.Builder{}
 	t_msg_builder.WriteString("Latest task running records:")
-	t_msg_builder.WriteString("\n - (run at) (duration)")
+	t_msg_builder.WriteString("\n <run at>    <duration>(ms)")
 	for _, record := range results {
-		t_start_time := utils.GetLocalTimeStringAt(record.StartTime, 0, ConfigYamlObj.TZ)
+		t_start_time := utils.GetLocalTimeStringAt(record.StartTime, 0, configYamlObj.TZ)
 		t_duration := record.Duration
-		t_t_msg := fmt.Sprintf(" - %v %v", t_start_time, t_duration)
+		t_t_msg := fmt.Sprintf(" %v    %v", t_start_time, t_duration)
 		t_msg_builder.WriteString(fmt.Sprintf("\n%v", t_t_msg))
 	}
 	t_msg := t_msg_builder.String()

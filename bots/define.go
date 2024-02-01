@@ -99,23 +99,23 @@ var (
 
 var (
 	// yaml config file instance
-	ConfigYamlObj *config.ConfigYaml
+	configYamlObj *config.ConfigYaml
 	// tg admin AdminList
-	AdminSet *config.AdminList
+	adminSet *config.AdminList
 	// proxy instance
-	ProxyObj *config.ProxyValid
+	proxyObj *config.ProxyValid
 	// cron instance
-	CronObj *cron.Cron
+	cronObj *cron.Cron
 	// instance of github.com/go-telegram/bot.Bot
 	botTelegram *bot.Bot
 	// device code caches
-	AuthCachedObj *AuthCache
+	authCachedObj *AuthCache
 	// bind message caches
-	BindCachedObj *BindCache
+	bindCachedObj *BindCache
 	// locker for user account, run task and delete account must acquire this locker
-	UsersConfigCacheObj *UsersConfigCache
+	usersConfigCacheObj *UsersConfigCache
 	// locker for PerformTasks, make sure PerformTasks just run one instance in any given time
-	JobLock *sync.Mutex
+	jobLock *sync.Mutex
 )
 
 type AuthCache struct {
