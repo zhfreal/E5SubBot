@@ -1,4 +1,4 @@
-bot_token: YOUR_BOT_TOKEN
+bottoken: YOUR_BOT_TOKEN
 proxy: ""
 bindmax: 999
 goroutine: 20

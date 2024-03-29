@@ -1,4 +1,4 @@
-<img src="https://github.com/iyear/E5SubBot/raw/master/pics/office.png" alt="logo" width="130" height="130" align="left" />
+<img src="https://github.com/zhfreal/E5SubBot/raw/master/pics/office.png" alt="logo" width="130" height="130" align="left" />
 
 <h1>E5SubBot</h1>
 
@@ -6,17 +6,7 @@
 
 <br/>
 
-![](https://img.shields.io/github/go-mod/go-version/iyear/E5SubBot?style=flat-square)
-![](https://img.shields.io/badge/license-GPL-lightgrey.svg?style=flat-square)
-![](https://img.shields.io/github/v/release/iyear/E5SubBot?color=red&style=flat-square)
-![](https://img.shields.io/github/last-commit/iyear/E5SubBot?style=flat-square)
-![](https://img.shields.io/github/downloads/iyear/E5SubBot/total?style=flat-square)
-
-![](https://img.shields.io/github/workflow/status/iyear/E5SubBot/Docker%20Build?label=docker%20build&style=flat-square)
-![](https://img.shields.io/docker/v/iyear/e5subbot?label=docker%20tag&style=flat-square)
-![](https://img.shields.io/docker/image-size/iyear/e5subbot?style=flat-square&label=docker%20image%20size)
-
-[English](https://github.com/iyear/E5SubBot) | 简体中文 | [Telegram群组](https://t.me/e5subbot)
+[English](https://github.com/zhfreal/E5SubBot) | 简体中文
 
 DEMO: https://t.me/E5Sub_bot
 
@@ -57,7 +47,7 @@ Bot创建教程:[Google](https://www.google.com/search?q=telegram+Bot%E5%88%9B%E
 
 ```shell
 #启动，你可以设置自己想要的时区
-docker run --name e5sub -e TZ="Asia/Shanghai" --restart=always -d iyear/e5subbot:latest
+docker run --name e5sub -e TZ="Asia/Shanghai" --restart=always -d zhfreal/e5subbot:latest
 
 #查看log
 docker logs -f e5sub
@@ -79,7 +69,7 @@ docker cp e5sub:/config.yml .
 
 ### 二进制文件
 
-在 [Releases](https://github.com/iyear/E5SubBot/releases) 页面下载对应系统的二进制文件，上传至服务器
+在 [Releases](https://github.com/zhfreal/E5SubBot/releases) 页面下载对应系统的二进制文件，上传至服务器
 
 Windows: 启动 `E5SubBot.exe`
 
@@ -97,7 +87,7 @@ chmod +x E5SubBot
 下载源码，安装GO环境
 
 ```shell
-git clone https://github.com/iyear/E5SubBot.git && cd E5SubBot && go build
+git clone https://github.com/zhfreal/E5SubBot.git && cd E5SubBot && go build
 ```
 
 ## 部署配置

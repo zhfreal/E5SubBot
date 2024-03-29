@@ -1,4 +1,4 @@
-<img src="https://github.com/iyear/E5SubBot/raw/master/pics/office.png" alt="logo" width="130" height="130" align="left" />
+<img src="https://github.com/zhfreal/E5SubBot/raw/master/pics/office.png" alt="logo" width="130" height="130" align="left" />
 
 <h1>E5SubBot</h1>
 
@@ -6,17 +6,7 @@
 
 <br/>
 
-![](https://img.shields.io/github/go-mod/go-version/iyear/E5SubBot?style=flat-square)
-![](https://img.shields.io/badge/license-GPL-lightgrey.svg?style=flat-square)
-![](https://img.shields.io/github/v/release/iyear/E5SubBot?color=red&style=flat-square)
-![](https://img.shields.io/github/last-commit/iyear/E5SubBot?style=flat-square)
-![](https://img.shields.io/github/downloads/iyear/E5SubBot/total?style=flat-square)
-
-![](https://img.shields.io/github/workflow/status/iyear/E5SubBot/Docker%20Build?label=docker%20build&style=flat-square)
-![](https://img.shields.io/docker/v/iyear/e5subbot?label=docker%20tag&style=flat-square)
-![](https://img.shields.io/docker/image-size/iyear/e5subbot?style=flat-square&label=docker%20image%20size)
-
-English | [简体中文](https://github.com/iyear/E5SubBot/blob/master/README_zhCN.md) | [Telegram Chat](https://t.me/e5subbot)
+English | [简体中文](https://github.com/zhfreal/E5SubBot/blob/master/README_zhCN.md)
 
 DEMO: https://t.me/E5Sub_bot
 
@@ -60,7 +50,7 @@ Support `amd64` `386` `arm64` `arm/v6` `arm/v7` arch
 
 ```shell
 #launch,you can set the time zone you want
-docker run --name e5sub -e TZ="Asia/Shanghai" --restart=always -d iyear/e5subbot:latest
+docker run --name e5sub -e TZ="Asia/Shanghai" --restart=always -d zhfreal/e5subbot:latest
 
 #view logs
 docker logs -f e5sub
@@ -82,7 +72,7 @@ docker cp e5sub:/config.yml .
 
 ### Binary Deployment
 
-Download the binary files of the corresponding system on the [Releases](https://github.com/iyear/E5SubBot/releases) page
+Download the binary files of the corresponding system on the [Releases](https://github.com/zhfreal/E5SubBot/releases) page
 and upload it to the server
 
 Windows: Start `E5SubBot.exe`
@@ -101,7 +91,7 @@ chmod +x E5SubBot
 Download the source code and install the GO environment
 
 ```shell
-git clone https://github.com/iyear/E5SubBot.git && cd E5SubBot && go build
+git clone https://github.com/zhfreal/E5SubBot.git && cd E5SubBot && go build
 ```
 
 ## Configuration
@@ -197,7 +187,7 @@ log:
 
 | Configuration | Explanation                                                                                                                                                                                                                                                                | Default |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| bot_token     | Change to your own `BotToken`                                                                                                                                                                                                                                              | -       |
+| bottoken      | Change to your own `BotToken`                                                                                                                                                                                                                                              | -       |
 | proxy         | `Socks5` or `http(s)` proxy. For example: `socks5://127.0.0.1:1080` or `http://127.0.1:8080`                                                                                                                                                                               | -       |
 | notice        | Announcement. Merged into `/help`                                                                                                                                                                                                                                          | -       |
 | admin         | The administrator's `tgid`, go to https://t.me/userinfobot to get it, separated by `,`; Administrator permissions: manually call the task, get the total feedback of the task                                                                                              | -       |
